@@ -1,0 +1,392 @@
+<Window x:Class="Assembly_VME.UI.SyncWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        Title="Wall Assembly BBS Sync &amp; Quantities Manager" 
+        Height="650" Width="1000"
+        WindowStartupLocation="CenterScreen"
+        Background="#F1F5F9"
+        FontFamily="Segoe UI, Arial"
+        ResizeMode="CanResizeWithGrip">
+    
+    <Window.Resources>
+        <BooleanToVisibilityConverter x:Key="BoolToVis"/>
+    </Window.Resources>
+
+    <Grid>
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto"/> <!-- 0. Premium Header -->
+            <RowDefinition Height="Auto"/> <!-- 1. Selector & Actions Bar -->
+            <RowDefinition Height="*"/>    <!-- 2. Dashboard Workspace -->
+            <RowDefinition Height="Auto"/> <!-- 3. Status Bar -->
+        </Grid.RowDefinitions>
+
+        <!-- 0. Header Panel -->
+        <Border Grid.Row="0" Background="#1E293B" Padding="15" CornerRadius="0,0,4,4">
+            <StackPanel>
+                <TextBlock Text="Wall Assembly BBS &amp; Quantities Manager" 
+                           Foreground="White" 
+                           FontSize="18" 
+                           FontWeight="Bold"/>
+                <TextBlock Text="Select a Wall Assembly dropdown to automatically compute schedules, sync parameters, generate sheets, and export PDF." 
+                           Foreground="#94A3B8" 
+                           FontSize="12" 
+                           Margin="0,4,0,0"/>
+            </StackPanel>
+        </Border>
+
+                <!-- 1. Selection &amp; Actions Bar -->
+        <Border Grid.Row="1" Background="White" BorderBrush="#E2E8F0" BorderThickness="0,0,0,1" Padding="15">
+            <Grid>
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="Auto"/> <!-- Label -->
+                    <ColumnDefinition Width="260"/> <!-- Dropdown -->
+                    <ColumnDefinition Width="*"/> <!-- Status Info / Spacer -->
+                    <ColumnDefinition Width="Auto"/> <!-- Action Buttons -->
+                </Grid.ColumnDefinitions>
+
+                <!-- Label -->
+                <TextBlock Grid.Column="0"
+                           Text="Assembly Name:"
+                           FontWeight="Bold"
+                           Foreground="#334155"
+                           FontSize="13"
+                           VerticalAlignment="Center"
+                           Margin="0,0,12,0"/>
+
+                <!-- Dropdown (ComboBox) -->
+                <ComboBox Grid.Column="1"
+                          ItemsSource="{Binding Assemblies}"
+                          SelectedItem="{Binding SelectedAssembly, Mode=TwoWay}"
+                          DisplayMemberPath="Name"
+                          Height="34"
+                          VerticalContentAlignment="Center"
+                          Padding="10,0"
+                          Background="White"
+                          BorderBrush="#CBD5E1"
+                          BorderThickness="1"
+                          Cursor="Hand"
+                          FontSize="13">
+                    <ComboBox.Resources>
+                        <Style TargetType="Border">
+                            <Setter Property="CornerRadius" Value="6"/>
+                        </Style>
+                    </ComboBox.Resources>
+                </ComboBox>
+
+                <TextBlock Grid.Column="2"
+                           Text="← Selected assembly sheet automatically updates in Revit!"
+                           Foreground="#64748B"
+                           FontStyle="Italic"
+                           VerticalAlignment="Center"
+                           Margin="15,0,0,0"
+                           FontSize="12"
+                           TextTrimming="CharacterEllipsis"/>
+
+                <!-- Action Buttons: Sync & Export -->
+                <StackPanel Grid.Column="3" Orientation="Horizontal">
+
+                    <!-- Action: Sync All Assemblies -->
+                    <Button Content="Sync All Assemblies"
+                            Command="{Binding SyncAllCommand}"
+                            Padding="16,0"
+                            Height="34"
+                            Background="#2563EB"
+                            Foreground="White"
+                            FontWeight="Bold"
+                            FontSize="13"
+                            BorderThickness="0"
+                            Cursor="Hand"
+                            Margin="0,0,8,0">
+                        <Button.Resources>
+                            <Style TargetType="Border">
+                                <Setter Property="CornerRadius" Value="6"/>
+                            </Style>
+                        </Button.Resources>
+                    </Button>
+
+                    <!-- Action: Export PDF -->
+                    <Button Content="Export Sheet to PDF"
+                            Command="{Binding ExportPdfCommand}"
+                            Padding="16,0"
+                            Height="34"
+                            Background="#E11D48"
+                            Foreground="White"
+                            FontWeight="Bold"
+                            FontSize="13"
+                            BorderThickness="0"
+                            Cursor="Hand"
+                            Margin="0,0,8,0">
+                        <Button.Resources>
+                            <Style TargetType="Border">
+                                <Setter Property="CornerRadius" Value="6"/>
+                            </Style>
+                        </Button.Resources>
+                    </Button>
+
+                    <!-- Action: Batch Export All -->
+                    <Button Content="Batch Export All"
+                            Command="{Binding BatchExportCommand}"
+                            Padding="16,0"
+                            Height="34"
+                            Background="#EA580C"
+                            Foreground="White"
+                            FontWeight="Bold"
+                            FontSize="13"
+                            BorderThickness="0"
+                            Cursor="Hand">
+                        <Button.Resources>
+                            <Style TargetType="Border">
+                                <Setter Property="CornerRadius" Value="6"/>
+                            </Style>
+                        </Button.Resources>
+                    </Button>
+                </StackPanel>
+            </Grid>
+        </Border>
+
+        <!-- 2. Dashboard Workspace (Tabbed) -->
+        <TabControl Grid.Row="2" Background="Transparent" BorderThickness="0" Margin="15"
+                    Visibility="{Binding IsAssemblySelected, Converter={StaticResource BoolToVis}}">
+            <TabControl.Resources>
+                <!-- Premium TabItem Style -->
+                <Style TargetType="TabItem">
+                    <Setter Property="Padding" Value="24,10"/>
+                    <Setter Property="FontSize" Value="14"/>
+                    <Setter Property="FontWeight" Value="SemiBold"/>
+                    <Setter Property="Template">
+                        <Setter.Value>
+                            <ControlTemplate TargetType="TabItem">
+                                <Border Name="Border" BorderThickness="0,0,0,3" Margin="0,0,15,0">
+                                    <ContentPresenter x:Name="ContentSite"
+                                        VerticalAlignment="Center"
+                                        HorizontalAlignment="Center"
+                                        ContentSource="Header"
+                                        Margin="{TemplateBinding Padding}"/>
+                                </Border>
+                                <ControlTemplate.Triggers>
+                                    <Trigger Property="IsSelected" Value="True">
+                                        <Setter TargetName="Border" Property="BorderBrush" Value="#2563EB"/>
+                                        <Setter Property="Foreground" Value="#2563EB"/>
+                                    </Trigger>
+                                    <Trigger Property="IsSelected" Value="False">
+                                        <Setter TargetName="Border" Property="BorderBrush" Value="Transparent"/>
+                                        <Setter Property="Foreground" Value="#64748B"/>
+                                    </Trigger>
+                                    <Trigger Property="IsMouseOver" Value="True">
+                                        <Setter Property="Foreground" Value="#1E40AF"/>
+                                    </Trigger>
+                                </ControlTemplate.Triggers>
+                            </ControlTemplate>
+                        </Setter.Value>
+                    </Setter>
+                </Style>
+            </TabControl.Resources>
+
+            <!-- Tab 1: Steel (Existing Rebar Data) -->
+            <TabItem Header="Steel">
+                <Grid Margin="0,15,0,0">
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="160"/> <!-- Material Summary -->
+                        <RowDefinition Height="*"/>   <!-- Rebar Schedule (BBS) -->
+                    </Grid.RowDefinitions>
+
+                    <!-- Top: Material Summary -->
+                    <Border Grid.Row="0" Background="White" CornerRadius="8" BorderBrush="#E2E8F0" BorderThickness="1" Margin="0,0,0,12" Padding="12">
+                        <Grid>
+                            <Grid.RowDefinitions>
+                                <RowDefinition Height="Auto"/>
+                                <RowDefinition Height="*"/>
+                            </Grid.RowDefinitions>
+
+                            <TextBlock Grid.Row="0" 
+                                       Text="Summary Schedule (Material Take-off)" 
+                                       FontWeight="Bold" 
+                                       Foreground="#0F172A" 
+                                       FontSize="13" 
+                                       Margin="0,0,0,8"/>
+
+                            <DataGrid Grid.Row="1"
+                                      ItemsSource="{Binding CurrentMaterialSummary}"
+                                      AutoGenerateColumns="False"
+                                      HeadersVisibility="Column"
+                                      GridLinesVisibility="Horizontal"
+                                      Background="White"
+                                      BorderThickness="0"
+                                      RowHeight="26"
+                                      IsReadOnly="True"
+                                      ScrollViewer.VerticalScrollBarVisibility="Auto">
+                                <DataGrid.Columns>
+                                    <DataGridTextColumn Header="Bar Diameter" Binding="{Binding BarDiameter}" Width="*" FontWeight="SemiBold"/>
+                                    <DataGridTextColumn Header="Total Bar Length" Binding="{Binding TotalLength}" Width="350"/>
+                                    <DataGridTextColumn Header="Weight" Binding="{Binding Weight}" Width="250" Foreground="#0F172A" FontWeight="Bold"/>
+                                </DataGrid.Columns>
+                                <DataGrid.ColumnHeaderStyle>
+                                    <Style TargetType="DataGridColumnHeader">
+                                        <Setter Property="Background" Value="#F1F5F9"/>
+                                        <Setter Property="Foreground" Value="#475569"/>
+                                        <Setter Property="FontWeight" Value="Bold"/>
+                                        <Setter Property="Padding" Value="6,4"/>
+                                        <Setter Property="BorderThickness" Value="0,0,0,1"/>
+                                        <Setter Property="BorderBrush" Value="#E2E8F0"/>
+                                    </Style>
+                                </DataGrid.ColumnHeaderStyle>
+                            </DataGrid>
+                        </Grid>
+                    </Border>
+
+                    <!-- Bottom: Rebar Bending Schedule (BBS) -->
+                    <Border Grid.Row="1" Background="White" CornerRadius="8" BorderBrush="#E2E8F0" BorderThickness="1" Padding="12">
+                        <Grid>
+                            <Grid.RowDefinitions>
+                                <RowDefinition Height="Auto"/>
+                                <RowDefinition Height="*"/>
+                            </Grid.RowDefinitions>
+
+                            <TextBlock Grid.Row="0" 
+                                       Text="Rebar Bending Schedule (BBS)" 
+                                       FontWeight="Bold" 
+                                       Foreground="#0F172A" 
+                                       FontSize="13" 
+                                       Margin="0,0,0,8"/>
+
+                            <DataGrid Grid.Row="1"
+                                      ItemsSource="{Binding CurrentBbs}"
+                                      AutoGenerateColumns="False"
+                                      HeadersVisibility="Column"
+                                      GridLinesVisibility="Horizontal"
+                                      Background="White"
+                                      BorderThickness="0"
+                                      IsReadOnly="True"
+                                      ScrollViewer.VerticalScrollBarVisibility="Auto"
+                                      ScrollViewer.HorizontalScrollBarVisibility="Auto">
+                                <DataGrid.Columns>
+                                    <DataGridTextColumn Header="Mark" Binding="{Binding Mark}" Width="100" FontWeight="Bold"/>
+                                    <DataGridTextColumn Header="Type" Binding="{Binding Type}" Width="100"/>
+                                    <DataGridTextColumn Header="Bar Diameter" Binding="{Binding Size}" Width="110"/>
+                                    <DataGridTextColumn Header="Shape" Binding="{Binding Shape}" Width="130"/>
+                                    <DataGridTextColumn Header="A" Binding="{Binding DimA}" Width="75"/>
+                                    <DataGridTextColumn Header="B" Binding="{Binding DimB}" Width="75"/>
+                                    <DataGridTextColumn Header="C" Binding="{Binding DimC}" Width="75"/>
+                                    <DataGridTextColumn Header="D" Binding="{Binding DimD}" Width="75"/>
+                                    <DataGridTextColumn Header="E" Binding="{Binding DimE}" Width="75"/>
+                                    <DataGridTextColumn Header="Bar Length" Binding="{Binding BarLength}" Width="105"/>
+                                    <DataGridTextColumn Header="Total Bar Length" Binding="{Binding TotalLength}" Width="125"/>
+                                    <DataGridTextColumn Header="Quantity" Binding="{Binding Quantity}" Width="75"/>
+                                    <DataGridTextColumn Header="weight" Binding="{Binding Weight}" Width="95" Foreground="#2563EB" FontWeight="Bold"/>
+                                </DataGrid.Columns>
+                                <DataGrid.ColumnHeaderStyle>
+                                    <Style TargetType="DataGridColumnHeader">
+                                        <Setter Property="Background" Value="#F1F5F9"/>
+                                        <Setter Property="Foreground" Value="#475569"/>
+                                        <Setter Property="FontWeight" Value="Bold"/>
+                                        <Setter Property="Padding" Value="6,4"/>
+                                        <Setter Property="BorderThickness" Value="0,0,0,1"/>
+                                        <Setter Property="BorderBrush" Value="#E2E8F0"/>
+                                    </Style>
+                                </DataGrid.ColumnHeaderStyle>
+                            </DataGrid>
+                        </Grid>
+                    </Border>
+                </Grid>
+            </TabItem>
+
+            <!-- Tab 2: Concrete -->
+            <TabItem Header="Concrete">
+                <Border Background="White" CornerRadius="8" BorderBrush="#E2E8F0" BorderThickness="1" Margin="0,15,0,0" Padding="12">
+                    <Grid>
+                        <Grid.RowDefinitions>
+                            <RowDefinition Height="Auto"/>
+                            <RowDefinition Height="*"/>
+                        </Grid.RowDefinitions>
+
+                        <TextBlock Grid.Row="0" 
+                                   Text="Wall Schedule (Concrete Details)" 
+                                   FontWeight="Bold" 
+                                   Foreground="#0F172A" 
+                                   FontSize="13" 
+                                   Margin="0,0,0,8"/>
+
+                        <DataGrid Grid.Row="1"
+                                  ItemsSource="{Binding CurrentConcrete}"
+                                  AutoGenerateColumns="False"
+                                  HeadersVisibility="Column"
+                                  GridLinesVisibility="Horizontal"
+                                  Background="White"
+                                  BorderThickness="0"
+                                  IsReadOnly="True"
+                                  ScrollViewer.VerticalScrollBarVisibility="Auto">
+                            <DataGrid.Columns>
+                                <DataGridTextColumn Header="Mark" Binding="{Binding Mark}" Width="110" FontWeight="Bold"/>
+                                <DataGridTextColumn Header="Length" Binding="{Binding Length}" Width="120"/>
+                                <DataGridTextColumn Header="Height" Binding="{Binding Height}" Width="120"/>
+                                <DataGridTextColumn Header="Area" Binding="{Binding Area}" Width="120"/>
+                                <DataGridTextColumn Header="Volume" Binding="{Binding Volume}" Width="130"/>
+                                <DataGridTextColumn Header="Weight" Binding="{Binding Weight}" Width="130" Foreground="#059669" FontWeight="Bold"/>
+                            </DataGrid.Columns>
+                            <DataGrid.ColumnHeaderStyle>
+                                <Style TargetType="DataGridColumnHeader">
+                                    <Setter Property="Background" Value="#F1F5F9"/>
+                                    <Setter Property="Foreground" Value="#475569"/>
+                                    <Setter Property="FontWeight" Value="Bold"/>
+                                    <Setter Property="Padding" Value="6,4"/>
+                                    <Setter Property="BorderThickness" Value="0,0,0,1"/>
+                                    <Setter Property="BorderBrush" Value="#E2E8F0"/>
+                                </Style>
+                            </DataGrid.ColumnHeaderStyle>
+                        </DataGrid>
+                    </Grid>
+                </Border>
+            </TabItem>
+
+            <!-- Tab 3: Hooks -->
+            <TabItem Header="Hooks">
+                <Border Background="White" CornerRadius="8" BorderBrush="#E2E8F0" BorderThickness="1" Margin="0,15,0,0" Padding="12">
+                    <Grid>
+                        <Grid.RowDefinitions>
+                            <RowDefinition Height="Auto"/>
+                            <RowDefinition Height="*"/>
+                        </Grid.RowDefinitions>
+
+                        <TextBlock Grid.Row="0" 
+                                   Text="Generic Model Schedule (Hooks &amp; Embeds)" 
+                                   FontWeight="Bold" 
+                                   Foreground="#0F172A" 
+                                   FontSize="13" 
+                                   Margin="0,0,0,8"/>
+
+                        <DataGrid Grid.Row="1"
+                                  ItemsSource="{Binding CurrentHooks}"
+                                  AutoGenerateColumns="False"
+                                  HeadersVisibility="Column"
+                                  GridLinesVisibility="Horizontal"
+                                  Background="White"
+                                  BorderThickness="0"
+                                  IsReadOnly="True"
+                                  ScrollViewer.VerticalScrollBarVisibility="Auto">
+                            <DataGrid.Columns>
+                                <DataGridTextColumn Header="Mark" Binding="{Binding Mark}" Width="200" FontWeight="Bold"/>
+                                <DataGridTextColumn Header="Type" Binding="{Binding Type}" Width="*"/>
+                                <DataGridTextColumn Header="Count" Binding="{Binding Count}" Width="150" Foreground="#2563EB" FontWeight="Bold"/>
+                            </DataGrid.Columns>
+                            <DataGrid.ColumnHeaderStyle>
+                                <Style TargetType="DataGridColumnHeader">
+                                    <Setter Property="Background" Value="#F1F5F9"/>
+                                    <Setter Property="Foreground" Value="#475569"/>
+                                    <Setter Property="FontWeight" Value="Bold"/>
+                                    <Setter Property="Padding" Value="6,4"/>
+                                    <Setter Property="BorderThickness" Value="0,0,0,1"/>
+                                    <Setter Property="BorderBrush" Value="#E2E8F0"/>
+                                </Style>
+                            </DataGrid.ColumnHeaderStyle>
+                        </DataGrid>
+                    </Grid>
+                </Border>
+            </TabItem>
+        </TabControl>
+
+        <!-- 3. Status Bar -->
+        <Border Grid.Row="3" Background="#1E293B" Padding="12,8">
+            <TextBlock Text="{Binding StatusText}" Foreground="#E2E8F0" FontSize="11"/>
+        </Border>
+    </Grid>
+</Window>

@@ -1,0 +1,24 @@
+<?xml version="1.0" encoding="utf-8"?>
+<RevitAddIns>
+  <!-- Command for manual execution (Optional if App already provides a Ribbon Button) -->
+  <AddIn Type="Command">
+    <Name>Wall Assembly BBS Sync</Name>
+    <Assembly>D:\VME apollo\Assembly_VME\Assembly_VME\bin\Debug\net8.0-windows\Assembly_VME.dll</Assembly>
+    <AddInId>A1B2C3D4-E5F6-4A7B-8C9D-0E1F2A3B4C5D</AddInId>
+    <FullClassName>Assembly_VME.Commands.SyncAssemblyBbsCommand</FullClassName>
+    <Text>Wall Assembly BBS Sync</Text>
+    <Description>Syncs Assembly Name to Panel_Name parameter of walls, rebars, and generic models.</Description>
+    <VendorId>VME</VendorId>
+    <VendorDescription>VME Precast</VendorDescription>
+  </AddIn>
+
+  <!-- Application for ribbon UI -->
+  <AddIn Type="Application">
+    <Name>VME Tools App</Name>
+    <Assembly>D:\VME apollo\Assembly_VME\Assembly_VME\bin\Debug\net8.0-windows\Assembly_VME.dll</Assembly>
+    <AddInId>B2C3D4E5-F6A7-4B8C-9D0E-1F2A3B4C5D6E</AddInId>
+    <FullClassName>Assembly_VME.UI.App</FullClassName>
+    <VendorId>VME</VendorId>
+    <VendorDescription>VME Precast</VendorDescription>
+  </AddIn>
+</RevitAddIns>
