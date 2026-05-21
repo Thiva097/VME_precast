@@ -101,6 +101,15 @@ namespace Assembly_VME.Helpers
                 0);
         }
 
+        public static XYZ GetShapeLegendPlacementPoint(SheetLayout layout)
+        {
+            // Positioned to the right of the summary table
+            return new XYZ(
+                layout.DrawableMinX + 0.45 * layout.DrawableWidth,
+                layout.DrawableMaxY - 0.02,
+                0);
+        }
+
         public static XYZ GetFooterPlacementPoint(SheetLayout layout, XYZ summaryPoint, double summaryHeightFeet)
         {
             return new XYZ(summaryPoint.X, summaryPoint.Y - summaryHeightFeet, 0);

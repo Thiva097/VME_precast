@@ -276,6 +276,10 @@ namespace Assembly_VME.Helpers
 
             if (heading.IndexOf("Shape", StringComparison.OrdinalIgnoreCase) >= 0)
             {
+                if (heading.IndexOf("Image", StringComparison.OrdinalIgnoreCase) >= 0)
+                {
+                    return 2.5; // Wider for images
+                }
                 return 1.1;
             }
 
@@ -303,6 +307,16 @@ namespace Assembly_VME.Helpers
             if (heading.IndexOf("Weight", StringComparison.OrdinalIgnoreCase) >= 0)
             {
                 return 0.9;
+            }
+
+            if (heading.IndexOf("Mark", StringComparison.OrdinalIgnoreCase) >= 0)
+            {
+                return 0.8;
+            }
+
+            if (heading.IndexOf("Type", StringComparison.OrdinalIgnoreCase) >= 0)
+            {
+                return 0.95;
             }
 
             return 1.0;

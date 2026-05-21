@@ -664,6 +664,26 @@ namespace Assembly_VME.ViewModels
                     XYZ rebarPoint = SheetLayoutHelper.GetBbsPlacementPoint(layout);
                     ScheduleSheetInstance.Create(_doc, sheet.Id, rebarSchedule.Id, rebarPoint);
 
+                    // 5. Create and place Rebar Shape Legend
+                    ViewSchedule shapeLegendSchedule = AssemblyViewUtils.CreateSingleCategorySchedule(_doc, assemblyId, new ElementId(BuiltInCategory.OST_Rebar));
+                    AssignUniqueScheduleName(shapeLegendSchedule, $"Shape Legend - {assemblyName}");
+                    ConfigureShapeLegendSchedule(_doc, shapeLegendSchedule);
+
+                    double shapeLegendWidth = layout.DrawableWidth * 0.35;
+                    ScheduleHelper.ConfigureScheduleSheetAppearance(shapeLegendSchedule, shapeLegendWidth);
+
+                    // Re-override RowHeight for the Shape Legend specifically so images zoom appropriately
+                    // (This ensures the large height isn't overridden by ScheduleHelper)
+                    try
+                    {
+                        shapeLegendSchedule.RowHeightOverride = RowHeightOverrideOptions.ImageRows;
+                        shapeLegendSchedule.RowHeight = 0.18; // 3 inches for proper image scaling
+                    }
+                    catch { }
+
+                    XYZ shapeLegendPoint = SheetLayoutHelper.GetShapeLegendPlacementPoint(layout);
+                    ScheduleSheetInstance.Create(_doc, sheet.Id, shapeLegendSchedule.Id, shapeLegendPoint);
+
                     try { _doc.Regenerate(); } catch { }
 
                     // 6. Find or create the assembly 3D orthographic view and place it on the sheet.
@@ -733,6 +753,9 @@ namespace Assembly_VME.ViewModels
             }
 
             // 1. Add fields safely (only add ONE of the duplicate fields to prevent squishing)
+            AddScheduleFieldByName(doc, def, "Mark");
+            AddScheduleFieldByName(doc, def, "Type");
+            
             if (AddScheduleFieldByName(doc, def, "Bar Diameter") == null)
             {
                 AddScheduleFieldByName(doc, def, "Size");
@@ -792,7 +815,7 @@ namespace Assembly_VME.ViewModels
                 }
             }
 
-            ScheduleHelper.EnableGrandTotals(def, "Weight", "Weight (kg)");
+            ScheduleHelper.EnableGrandTotals(def, "Weight", "Weight_Kg", "Weight_Dia_Total", "Quantity");
             ScheduleHelper.ApplyFieldAlignment(def);
         }
 
@@ -824,6 +847,7 @@ namespace Assembly_VME.ViewModels
                 AddScheduleFieldByName(doc, def, "Total Bar Length");
             }
             
+            // Add the weight column (Weight_Kg) and ensure totaling is enabled.
             ScheduleField summaryWeightField = ScheduleHelper.AddWeightColumn(doc, def, "Weight");
 
             def.IsItemized = false;
@@ -838,22 +862,45 @@ namespace Assembly_VME.ViewModels
             foreach (ScheduleFieldId fieldId in def.GetFieldOrder())
             {
                 ScheduleField field = def.GetField(fieldId);
-                string colHeader = field.ColumnHeading ?? "";
-                if (colHeader.Contains("Length"))
+                string colHeader = (field.ColumnHeading ?? "").ToLowerInvariant();
+                if (colHeader.Contains("length") || colHeader.Contains("weight") || colHeader.Contains("quantity"))
                 {
                     ScheduleHelper.ConfigureNumericTotalField(field);
                 }
             }
 
-            if (summaryWeightField != null)
-            {
-                ScheduleHelper.ConfigureNumericTotalField(summaryWeightField);
-            }
-
-            ScheduleHelper.EnableGrandTotals(def, "Weight", "Weight (kg)");
+            ScheduleHelper.EnableGrandTotals(def, "Weight", "Weight_Kg", "Weight_Dia_Total", "Quantity");
             ScheduleHelper.ApplyFieldAlignment(def);
         }
 
+
+        private static void ConfigureShapeLegendSchedule(Document doc, ViewSchedule schedule)
+        {
+            ScheduleDefinition def = schedule.Definition;
+
+            // Clear fields
+            IList<ScheduleFieldId> fieldIds = def.GetFieldOrder();
+            for (int i = fieldIds.Count - 1; i >= 0; i--)
+            {
+                try { def.RemoveField(fieldIds[i]); } catch { }
+            }
+
+            // Add Shape and Shape Image
+            AddScheduleFieldByName(doc, def, "Shape", "Rebar Shape");
+            AddScheduleFieldByName(doc, def, "Shape Image");
+
+            // Group by Shape
+            def.IsItemized = false;
+            try { def.ClearSortGroupFields(); } catch { }
+
+            ScheduleField shapeField = FindFieldByHeading(def, "Rebar Shape");
+            if (shapeField != null)
+            {
+                ScheduleHelper.AddSortGroupField(def, shapeField);
+            }
+
+            ScheduleHelper.ApplyFieldAlignment(def);
+        }
 
         private static ScheduleField AddScheduleFieldByName(Document doc, ScheduleDefinition def, string name, string heading = null)
         {
@@ -1291,6 +1338,9 @@ namespace Assembly_VME.ViewModels
             }
 
             // Sync Rebars
+            var rebarWeightsByDia = new Dictionary<double, double>();
+            var rebarWorkList = new List<(Element Elem, RebarWeightInfo Info, bool ParamSet, bool MarkSet)>();
+
             foreach (ElementId rebarId in item.RebarIds)
             {
                 Element elem = _doc.GetElement(rebarId);
@@ -1301,11 +1351,32 @@ namespace Assembly_VME.ViewModels
                 try
                 {
                     RebarWeightInfo weightInfo = RebarHelper.CalculateWeight(elem);
-                    RebarHelper.SetWeightParameters(elem, weightInfo);
+                    rebarWorkList.Add((elem, weightInfo, rebarParamSet, rebarMarkSet));
+
+                    // Use a rounded diameter as the grouping key
+                    double diaKey = Math.Round(weightInfo.DiameterMm, 2);
+                    if (!rebarWeightsByDia.ContainsKey(diaKey)) rebarWeightsByDia[diaKey] = 0;
+                    rebarWeightsByDia[diaKey] += weightInfo.TotalWeightKg;
+                }
+                catch { }
+            }
+
+            foreach (var work in rebarWorkList)
+            {
+                try
+                {
+                    RebarHelper.SetWeightParameters(work.Elem, work.Info);
+                    
+                    // Write the pre-calculated group total to Weight_Dia_Total
+                    double diaKey = Math.Round(work.Info.DiameterMm, 2);
+                    if (rebarWeightsByDia.TryGetValue(diaKey, out double totalGroupWeight))
+                    {
+                        ParameterHelper.SetDoubleParameterByName(work.Elem, "Weight_Dia_Total", totalGroupWeight);
+                    }
                 }
                 catch { }
 
-                if (rebarParamSet || rebarMarkSet) rebarsUpdated++;
+                if (work.ParamSet || work.MarkSet) rebarsUpdated++;
                 else failures++;
             }
 

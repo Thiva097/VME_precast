@@ -91,9 +91,10 @@ namespace Assembly_VME.Helpers
             // UnitWeightKg calculation (Single bar for metadata/UI)
             info.UnitWeightKg = (info.DiameterMm * info.DiameterMm * info.SingleLengthMm) / 162000.0;
             
-            // TotalWeightKg: Exact literal formula provided by user: (D * D * TotalLength * Quantity) / 162000
-            // Here info.TotalLengthMm already represents the Total Bar Length of the set.
-            info.TotalWeightKg = (info.DiameterMm * info.DiameterMm * info.TotalLengthMm * info.Quantity) / 162000.0;
+            // TotalWeightKg: Exact literal formula provided by user: (D^2 * TotalLength) / 162000
+            // Since info.TotalLengthMm already represents the Total Bar Length of the set, 
+            // multiplying by Quantity again would double-count the weight.
+            info.TotalWeightKg = (info.DiameterMm * info.DiameterMm * info.TotalLengthMm) / 162000.0;
 
             // Round to avoid floating-point differences that cause "<varies>" in grouped schedules.
             info.UnitWeightKg = Math.Round(info.UnitWeightKg, 4);

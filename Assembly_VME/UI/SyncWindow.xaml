@@ -263,15 +263,15 @@
                                     <DataGridTextColumn Header="Mark" Binding="{Binding Mark}" Width="100" FontWeight="Bold"/>
                                     <DataGridTextColumn Header="Type" Binding="{Binding Type}" Width="100"/>
                                     <DataGridTextColumn Header="Bar Diameter" Binding="{Binding Size}" Width="110"/>
-                                    <DataGridTextColumn Header="Shape" Binding="{Binding Shape}" Width="130"/>
+                                    <DataGridTextColumn Header="Shape" Binding="{Binding Shape}" Width="80"/>
                                     <DataGridTextColumn Header="A" Binding="{Binding DimA}" Width="75"/>
                                     <DataGridTextColumn Header="B" Binding="{Binding DimB}" Width="75"/>
                                     <DataGridTextColumn Header="C" Binding="{Binding DimC}" Width="75"/>
                                     <DataGridTextColumn Header="D" Binding="{Binding DimD}" Width="75"/>
                                     <DataGridTextColumn Header="E" Binding="{Binding DimE}" Width="75"/>
-                                    <DataGridTextColumn Header="Bar Length" Binding="{Binding BarLength}" Width="105"/>
-                                    <DataGridTextColumn Header="Total Bar Length" Binding="{Binding TotalLength}" Width="125"/>
-                                    <DataGridTextColumn Header="Quantity" Binding="{Binding Quantity}" Width="75"/>
+                                    <DataGridTextColumn Header="Bar Length" Binding="{Binding BarLength}" Width="95"/>
+                                    <DataGridTextColumn Header="Total Bar Length" Binding="{Binding TotalLength}" Width="115"/>
+                                    <DataGridTextColumn Header="Quantity" Binding="{Binding Quantity}" Width="65"/>
                                     <DataGridTextColumn Header="weight" Binding="{Binding Weight}" Width="95" Foreground="#2563EB" FontWeight="Bold"/>
                                 </DataGrid.Columns>
                                 <DataGrid.ColumnHeaderStyle>

@@ -24,3 +24,4 @@ d:\VME apollo\Assembly_VME\Assembly_VME\bin\Debug_build_check3\net8.0-windows\As
 d:\VME apollo\Assembly_VME\Assembly_VME\bin\BuildCheck\Assembly_VME.deps.json
 d:\VME apollo\Assembly_VME\Assembly_VME\bin\BuildCheck\Assembly_VME.dll
 d:\VME apollo\Assembly_VME\Assembly_VME\bin\BuildCheck\Assembly_VME.pdb
+D:\VME apollo\Assembly_VME\Assembly_VME\obj\Debug\net8.0-windows\Assembly_VME.sourcelink.json
