@@ -617,10 +617,7 @@ namespace Assembly_VME.ViewModels
                         try { sheet.SheetNumber = GetNextAvailableSheetNumber(_doc); } catch { }
                     }
 
-                    // 2.5 Do NOT delete old schedules (User requested to keep them).
                     // DeleteOldAssemblySchedules(_doc, assemblyId, assemblyName);
-
-
                     // 3. Create fresh new schedules (don't touch existing ones)
                     // Rebar Schedule
                     ViewSchedule rebarSchedule = AssemblyViewUtils.CreateSingleCategorySchedule(_doc, assemblyId, new ElementId(BuiltInCategory.OST_Rebar));
@@ -628,8 +625,21 @@ namespace Assembly_VME.ViewModels
                     ConfigureBbsSchedule(_doc, rebarSchedule);
 
                     // 4. Material Takeoff / Summary Schedule
-                    ViewSchedule materialSchedule = AssemblyViewUtils.CreateSingleCategorySchedule(_doc, assemblyId, new ElementId(BuiltInCategory.OST_Rebar));
-                    AssignUniqueScheduleName(materialSchedule, $"Material Takeoff - {assemblyName}");
+                    // 4. TRUE MATERIAL TAKEOFF SCHEDULE
+                    ViewSchedule materialSchedule =
+                        AssemblyViewUtils.CreateSingleCategorySchedule(
+                            _doc,
+                            assemblyId,
+                            new ElementId(BuiltInCategory.OST_Rebar));
+
+                    AssignUniqueScheduleName(
+                        materialSchedule,
+                        $"Material Summary - {assemblyName}");
+
+                    // Grouped schedule
+                    materialSchedule.Definition.IsItemized = false;
+
+                    // Configure fields/formatting
                     ConfigureSummarySchedule(_doc, materialSchedule);
 
                     SheetLayoutHelper.SheetLayout layout = SheetLayoutHelper.GetLayout(_doc, sheet);
@@ -754,13 +764,13 @@ namespace Assembly_VME.ViewModels
 
             // 1. Add fields safely (only add ONE of the duplicate fields to prevent squishing)
             AddScheduleFieldByName(doc, def, "Mark");
-            AddScheduleFieldByName(doc, def, "Type");
+            AddScheduleFieldByName(doc, def, "Type");         
             
             if (AddScheduleFieldByName(doc, def, "Bar Diameter") == null)
             {
                 AddScheduleFieldByName(doc, def, "Size");
             }
-            AddScheduleFieldByName(doc, def, "Shape");
+            AddScheduleFieldByName(doc, def, "Shape");   
             
             AddScheduleFieldByName(doc, def, "A");
             AddScheduleFieldByName(doc, def, "B");
@@ -771,8 +781,7 @@ namespace Assembly_VME.ViewModels
             if (AddScheduleFieldByName(doc, def, "Bar Length") == null)
             {
                 AddScheduleFieldByName(doc, def, "Length");
-            }
-            
+            }          
             if (AddScheduleFieldByName(doc, def, "Total Length") == null)
             {
                 AddScheduleFieldByName(doc, def, "Total Bar Length");
@@ -780,7 +789,12 @@ namespace Assembly_VME.ViewModels
             
             AddScheduleFieldByName(doc, def, "Quantity");
 
+            // WEIGHT FIELD
             ScheduleField weightField = ScheduleHelper.AddWeightColumn(doc, def, "Weight");
+            if (weightField != null)
+            {
+                ScheduleHelper.ConfigureNumericTotalField(weightField);
+            }
 
             def.IsItemized = true;
 
@@ -823,53 +837,132 @@ namespace Assembly_VME.ViewModels
         {
             ScheduleDefinition def = schedule.Definition;
 
-            // Clear any default/existing fields to start fresh!
-            IList<ScheduleFieldId> currentSummaryFieldIds = def.GetFieldOrder();
-            for (int i = currentSummaryFieldIds.Count - 1; i >= 0; i--)
+            // CLEAR EXISTING FIELDS
+            IList<ScheduleFieldId> fieldIds = def.GetFieldOrder();
+
+            for (int i = fieldIds.Count - 1; i >= 0; i--)
             {
-                ScheduleField field = def.GetField(currentSummaryFieldIds[i]);
-                string heading = field.ColumnHeading ?? "";
-                if (heading.IndexOf("Weight", StringComparison.OrdinalIgnoreCase) >= 0)
+                try
                 {
-                    continue; // Preserve the user's manual calculated weight field
+                    def.RemoveField(fieldIds[i]);
                 }
-                try { def.RemoveField(currentSummaryFieldIds[i]); } catch { }
+                catch { }
             }
 
-            // 1. Add fields safely (only add ONE of the duplicate fields to prevent squishing)
-            if (AddScheduleFieldByName(doc, def, "Bar Diameter") == null)
+            // =========================
+            // BAR DIAMETER
+            // =========================
+
+            ScheduleField diaField =
+                AddScheduleFieldByName(doc, def, "Bar Diameter");
+
+            if (diaField == null)
             {
-                AddScheduleFieldByName(doc, def, "Size");
+                diaField =
+                    AddScheduleFieldByName(doc, def, "Size");
             }
-            
-            if (AddScheduleFieldByName(doc, def, "Total Length") == null)
+
+            if (diaField != null)
             {
-                AddScheduleFieldByName(doc, def, "Total Bar Length");
+                diaField.ColumnHeading = "Bar Diameter";
+
+                try
+                {
+                    diaField.HorizontalAlignment =
+                        ScheduleHorizontalAlignment.Center;
+                }
+                catch { }
             }
-            
-            // Add the weight column (Weight_Kg) and ensure totaling is enabled.
-            ScheduleField summaryWeightField = ScheduleHelper.AddWeightColumn(doc, def, "Weight");
+
+            // =========================
+            // TOTAL BAR LENGTH
+            // =========================
+
+            ScheduleField lengthField =
+                AddScheduleFieldByName(
+                    doc,
+                    def,
+                    "Total Bar Length");
+
+            if (lengthField == null)
+            {
+                lengthField =
+                    AddScheduleFieldByName(
+                        doc,
+                        def,
+                        "Total Length");
+            }
+
+            if (lengthField != null)
+            {
+                lengthField.ColumnHeading = "Total Bar Length";
+
+                try { lengthField.HorizontalAlignment = ScheduleHorizontalAlignment.Center; } catch { }
+                // Sum grouped rows instead of showing <varies>
+                try { lengthField.DisplayType = ScheduleFieldDisplayType.Totals; } catch { }
+            }
+
+            // =========================
+            // WEIGHT FIELD (Weight_Kg - numeric shared param)
+            // =========================
+
+            // Try Weight_Kg first (numeric double), then Weight_Dia_Total
+            // =========================
+            // WEIGHT FIELD — use Weight_Dia_Total for the summary schedule.
+            // Every rebar in a diameter group has the SAME Weight_Dia_Total value (the group total),
+            // so Revit can sum it without showing <varies>.
+            // =========================
+            ScheduleField weightField = AddScheduleFieldByName(doc, def, "Weight_Dia_Total");
+            if (weightField == null)
+                weightField = AddScheduleFieldByName(doc, def, "Weight_Kg");  // fallback only
+
+            if (weightField != null)
+            {
+                weightField.ColumnHeading = "Weight (Kg)";
+                try { weightField.HorizontalAlignment = ScheduleHorizontalAlignment.Center; } catch { }
+                try { weightField.DisplayType = ScheduleFieldDisplayType.Totals; } catch { }
+            }
+
+            // =========================
+            // GROUPING
+            // =========================
 
             def.IsItemized = false;
+            def.ShowGrandTotal = true;
+            def.ShowGrandTotalTitle = true;
+            def.ShowGrandTotalCount = false;
 
-            try { def.ClearSortGroupFields(); } catch { }
-
-            ScheduleField diameterField = FindFieldByHeading(def, "Bar Diameter");
-            if (diameterField == null) diameterField = FindFieldByHeading(def, "Size");
-
-            ScheduleHelper.AddSortGroupField(def, diameterField);
-
-            foreach (ScheduleFieldId fieldId in def.GetFieldOrder())
+            try
             {
-                ScheduleField field = def.GetField(fieldId);
-                string colHeader = (field.ColumnHeading ?? "").ToLowerInvariant();
-                if (colHeader.Contains("length") || colHeader.Contains("weight") || colHeader.Contains("quantity"))
-                {
-                    ScheduleHelper.ConfigureNumericTotalField(field);
-                }
+                def.ClearSortGroupFields();
+            }
+            catch { }
+
+            // GROUP BY BAR DIAMETER
+            if (diaField != null)
+            {
+                ScheduleSortGroupField sortField =
+                    new ScheduleSortGroupField(diaField.FieldId);
+
+                def.AddSortGroupField(sortField);
             }
 
-            ScheduleHelper.EnableGrandTotals(def, "Weight", "Weight_Kg", "Weight_Dia_Total", "Quantity");
+            // =========================
+            // GRAND TOTALS
+            // =========================
+
+            try
+            {
+                def.ShowGrandTotal = true;
+                def.ShowGrandTotalTitle = true;
+                def.GrandTotalTitle = "TOTAL";
+            }
+            catch { }
+
+            // =========================
+            // ALIGNMENT
+            // =========================
+
             ScheduleHelper.ApplyFieldAlignment(def);
         }
 
@@ -1289,38 +1382,6 @@ namespace Assembly_VME.ViewModels
             }
         }
 
-        private static void DeleteOldAssemblySchedules(Document doc, ElementId assemblyId, string assemblyName)
-        {
-            FilteredElementCollector collector = new FilteredElementCollector(doc)
-                .OfClass(typeof(ViewSchedule));
-
-            List<ElementId> toDelete = new List<ElementId>();
-            foreach (Element elem in collector)
-            {
-                ViewSchedule vs = elem as ViewSchedule;
-                if (vs == null) continue;
-
-                // Check if belongs to assembly
-                bool isAssemblyView = vs.AssociatedAssemblyInstanceId == assemblyId;
-
-                // Also check by name as fallback for non-associated schedules that we created
-                bool nameMatches = !string.IsNullOrEmpty(assemblyName) &&
-                                   vs.Name.IndexOf(assemblyName, StringComparison.OrdinalIgnoreCase) >= 0 &&
-                                   (vs.Name.IndexOf("Rebar Schedule", StringComparison.OrdinalIgnoreCase) >= 0 ||
-                                    vs.Name.IndexOf("Material Takeoff", StringComparison.OrdinalIgnoreCase) >= 0);
-
-                if (isAssemblyView || nameMatches)
-                {
-                    toDelete.Add(vs.Id);
-                }
-            }
-
-            foreach (ElementId id in toDelete)
-            {
-                try { doc.Delete(id); } catch { }
-            }
-        }
-
         private void SyncAssemblyItem(AssemblyItem item, ref int wallsUpdated, ref int rebarsUpdated, ref int genericModelsUpdated, ref int failures)
         {
             string assemblyName = item.Name;
@@ -1332,13 +1393,11 @@ namespace Assembly_VME.ViewModels
                 if (wall == null) continue;
                 bool wallParamSet = ParameterHelper.SetParameterByName(wall, "Panel_Name", assemblyName);
                 bool wallMarkSet = ParameterHelper.SetBuiltInParameter(wall, BuiltInParameter.ALL_MODEL_MARK, assemblyName);
-                
                 if (wallParamSet || wallMarkSet) wallsUpdated++;
                 else failures++;
             }
 
             // Sync Rebars
-            var rebarWeightsByDia = new Dictionary<double, double>();
             var rebarWorkList = new List<(Element Elem, RebarWeightInfo Info, bool ParamSet, bool MarkSet)>();
 
             foreach (ElementId rebarId in item.RebarIds)
@@ -1347,16 +1406,12 @@ namespace Assembly_VME.ViewModels
                 if (elem == null) continue;
                 bool rebarParamSet = ParameterHelper.SetParameterByName(elem, "Panel_Name", assemblyName);
                 bool rebarMarkSet = ParameterHelper.SetBuiltInParameter(elem, BuiltInParameter.ALL_MODEL_MARK, assemblyName);
-                
+
                 try
                 {
                     RebarWeightInfo weightInfo = RebarHelper.CalculateWeight(elem);
                     rebarWorkList.Add((elem, weightInfo, rebarParamSet, rebarMarkSet));
-
-                    // Use a rounded diameter as the grouping key
-                    double diaKey = Math.Round(weightInfo.DiameterMm, 2);
-                    if (!rebarWeightsByDia.ContainsKey(diaKey)) rebarWeightsByDia[diaKey] = 0;
-                    rebarWeightsByDia[diaKey] += weightInfo.TotalWeightKg;
+               
                 }
                 catch { }
             }
@@ -1366,13 +1421,13 @@ namespace Assembly_VME.ViewModels
                 try
                 {
                     RebarHelper.SetWeightParameters(work.Elem, work.Info);
-                    
-                    // Write the pre-calculated group total to Weight_Dia_Total
-                    double diaKey = Math.Round(work.Info.DiameterMm, 2);
-                    if (rebarWeightsByDia.TryGetValue(diaKey, out double totalGroupWeight))
-                    {
-                        ParameterHelper.SetDoubleParameterByName(work.Elem, "Weight_Dia_Total", totalGroupWeight);
-                    }
+
+                    // Store each element's own weight — Revit's Totals display type
+                    // will sum these correctly across all rows grouped by diameter.
+                    ParameterHelper.SetDoubleParameterByName(
+                        work.Elem,
+                        "Weight_Dia_Total",
+                        Math.Round(work.Info.TotalWeightKg, 3));
                 }
                 catch { }
 
@@ -1388,11 +1443,9 @@ namespace Assembly_VME.ViewModels
                 if (gm == null) continue;
                 bool gmParamSet = ParameterHelper.SetParameterByName(gm, "Panel_Name", assemblyName);
                 bool gmMarkSet = ParameterHelper.SetBuiltInParameter(gm, BuiltInParameter.ALL_MODEL_MARK, assemblyName);
-
                 ParameterHelper.SetParameterByName(gm, "Summary_Footer_Label", "Generic Module");
                 ParameterHelper.SetParameterByName(gm, "Summary_Footer_Length", "-");
                 ParameterHelper.SetParameterByName(gm, "Summary_Footer_Weight", genericCountText);
-
                 if (gmParamSet || gmMarkSet) genericModelsUpdated++;
                 else failures++;
             }

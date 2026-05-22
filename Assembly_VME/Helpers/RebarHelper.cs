@@ -106,22 +106,18 @@ namespace Assembly_VME.Helpers
         /// <summary>
         /// Writes total set weight to Weight_Kg so schedules can total and show grand totals correctly.
         /// </summary>
-        public static bool SetWeightParameters(Element elem, RebarWeightInfo info)
+        public static bool SetWeightParameters(
+     Element elem,
+     RebarWeightInfo info)
         {
-            if (elem == null) return false;
+            if (elem == null)
+                return false;
 
-            bool success = ParameterHelper.SetDoubleParameterByName(elem, "Weight_Kg", info.TotalWeightKg);
-
-            // Keep Comments in sync as a readable fallback (not used in schedule when Weight_Kg exists).
-            try
-            {
-                Parameter comments = elem.get_Parameter(BuiltInParameter.ALL_MODEL_INSTANCE_COMMENTS);
-                if (comments != null && !comments.IsReadOnly && comments.StorageType == StorageType.String)
-                {
-                    comments.Set($"{info.TotalWeightKg:F2}");
-                }
-            }
-            catch { }
+            bool success =
+                ParameterHelper.SetDoubleParameterByName(
+                    elem,
+                    "Weight_Kg",
+                    info.TotalWeightKg);
 
             return success;
         }
