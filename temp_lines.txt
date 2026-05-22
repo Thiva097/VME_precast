@@ -1,0 +1,50 @@
+﻿                    // 3. Create fresh new schedules (don't touch existing ones)
+                    // Rebar Schedule
+                    ViewSchedule rebarSchedule = AssemblyViewUtils.CreateSingleCategorySchedule(_doc, assemblyId, new ElementId(BuiltInCategory.OST_Rebar));
+                    AssignUniqueScheduleName(rebarSchedule, $"Rebar Schedule - {assemblyName}");
+                    ConfigureBbsSchedule(_doc, rebarSchedule);
+
+                    // 4. Material Takeoff / Summary Schedule
+                    // 4. TRUE MATERIAL TAKEOFF SCHEDULE
+                    ViewSchedule materialSchedule =
+                        ViewSchedule.CreateMaterialTakeoff(
+                            _doc,
+                            new ElementId(BuiltInCategory.OST_Rebar));
+
+                    AssignUniqueScheduleName(
+                        materialSchedule,
+                        $"Material Takeoff - {assemblyName}");
+
+                    // Add Panel_Name field for filtering
+                    ScheduleField panelField =
+                        AddScheduleFieldByName(
+                            _doc,
+                            materialSchedule.Definition,
+                            "Panel_Name");
+
+                    // Filter only current assembly rebars
+                    if (panelField != null)
+                    {
+                        ScheduleFilter filter =
+                            new ScheduleFilter(
+                                panelField.FieldId,
+                                ScheduleFilterType.Equal,
+                                assemblyName);
+
+                        materialSchedule.Definition.AddFilter(filter);
+                    }
+
+                    // Grouped schedule
+                    materialSchedule.Definition.IsItemized = false;
+
+                    // Configure fields/formatting
+                    ConfigureSummarySchedule(_doc, materialSchedule);
+
+                    SheetLayoutHelper.SheetLayout layout = SheetLayoutHelper.GetLayout(_doc, sheet);
+                    double summaryTableWidth = layout.DrawableWidth * 0.42;
+                    double bbsTableWidth = layout.DrawableWidth * 0.96;
+
+                    ScheduleHelper.ConfigureScheduleSheetAppearance(materialSchedule, summaryTableWidth);
+                    ScheduleHelper.ConfigureScheduleSheetAppearance(rebarSchedule, bbsTableWidth);
+
+                    try { _doc.Regenerate(); } catch { }

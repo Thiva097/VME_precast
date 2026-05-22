@@ -95,20 +95,53 @@ namespace Assembly_VME.Helpers
         /// <summary>
         /// Adds the Weight column using Weight_Kg and fallbacks; ensures it is visible on the sheet.
         /// </summary>
-        public static ScheduleField AddWeightColumn(Document doc, ScheduleDefinition def, string heading = "Weight")
+        public static ScheduleField AddWeightColumn(
+    Document doc,
+    ScheduleDefinition def,
+    string heading = "Weight")
         {
             if (doc == null || def == null) return null;
 
-            ScheduleField field = AddFieldByName(doc, def, "Weight_Kg", heading);
-            if (field == null) field = AddFieldByName(doc, def, "Weight_Dia_Total", heading);
-            if (field == null) field = AddFieldContaining(doc, def, "Weight_Kg", heading);
-            if (field == null) field = AddFieldContaining(doc, def, "Weight", heading);
-            if (field == null) field = AddFieldByBuiltInComments(doc, def, heading);
+            ScheduleField field = null;
+
+            // Try exact name first
+            field = AddFieldByName(doc, def, "Weight_Kg", heading);
+
+            if (field == null)
+                field = AddFieldByName(doc, def, "Weight_Dia_Total", heading);
+
+            // NEW: broad fallback — find ANY schedulable field containing "weight"
+            // that is a numeric (double) type, not a text field
+            if (field == null)
+            {
+                foreach (SchedulableField sf in def.GetSchedulableFields())
+                {
+                    string sfName = sf.GetName(doc);
+                    if (sfName.IndexOf("Weight", StringComparison.OrdinalIgnoreCase) < 0)
+                        continue;
+
+                    // Skip text-type fields — they cause <varies> in grouped schedules
+                    ScheduleField existing = FindFieldByParameterId(def, sf.ParameterId);
+                    if (existing != null)
+                    {
+                        field = existing;
+                        field.ColumnHeading = heading;
+                        break;
+                    }
+
+                    ScheduleField added = def.AddField(sf);
+                    if (added != null)
+                    {
+                        added.ColumnHeading = heading;
+                        EnsureFieldVisibleOnSheet(added);
+                        field = added;
+                        break;
+                    }
+                }
+            }
 
             if (field != null)
-            {
                 EnsureFieldVisibleOnSheet(field);
-            }
 
             return field;
         }
@@ -329,7 +362,8 @@ namespace Assembly_VME.Helpers
             foreach (SchedulableField sf in def.GetSchedulableFields())
             {
                 string sfName = sf.GetName(doc);
-                if (!sfName.Equals(name, StringComparison.OrdinalIgnoreCase))
+                if (!sfName.Equals(name, StringComparison.OrdinalIgnoreCase) && 
+                    !sfName.Replace(" ", "").Equals(name.Replace(" ", ""), StringComparison.OrdinalIgnoreCase))
                 {
                     continue;
                 }
