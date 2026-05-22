@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.IO;
 using Autodesk.Revit.DB;
 using Autodesk.Revit.ApplicationServices;
+using Autodesk.Revit.UI;
 
 namespace Assembly_VME.Helpers
 {
@@ -148,75 +149,107 @@ namespace Assembly_VME.Helpers
         /// </summary>
         public static void EnsureSharedParametersExist(Document doc)
         {
-            HashSet<string> existing = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+            // Build a map of existing parameter names AND their category bindings
             BindingMap bindingMap = doc.ParameterBindings;
+
+            // Check which of our params are already correctly bound to Rebar
+            HashSet<string> boundToRebar = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+            HashSet<string> boundAny = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+
             DefinitionBindingMapIterator it = bindingMap.ForwardIterator();
             while (it.MoveNext())
             {
-                existing.Add(it.Key.Name);
-            }
+                string pName = it.Key.Name;
+                boundAny.Add(pName);
 
-            bool allExist = true;
-            foreach (string name in SharedParamNames)
-            {
-                if (!existing.Contains(name))
+                InstanceBinding ib = it.Current as InstanceBinding;
+                if (ib == null) continue;
+                foreach (Category cat in ib.Categories)
                 {
-                    allExist = false;
-                    break;
+                    if (cat != null && cat.Id.Value == (long)BuiltInCategory.OST_Rebar)
+                    {
+                        boundToRebar.Add(pName);
+                        break;
+                    }
                 }
             }
-            if (allExist) return;
+
+            // Determine which params still need to be created
+            bool needWeightKg = !boundToRebar.Contains("Weight_Kg");
+            bool needWeightDia = !boundToRebar.Contains("Weight_Dia_Total");
+            bool needPanelName = !boundAny.Contains("Panel_Name");
+            bool needFooterLabel = !boundAny.Contains("Summary_Footer_Label");
+            bool needFooterLength = !boundAny.Contains("Summary_Footer_Length");
+            bool needFooterWeight = !boundAny.Contains("Summary_Footer_Weight");
+
+            bool nothingToDo = !needWeightKg && !needWeightDia &&
+                               !needPanelName && !needFooterLabel &&
+                               !needFooterLength && !needFooterWeight;
+            if (nothingToDo) return;
 
             Application app = doc.Application;
             string originalSharedParamFile = app.SharedParametersFilename;
             string tempFile = Path.Combine(
-                Environment.GetFolderPath(Environment.SpecialFolder.MyDocuments),
-                "VME_SharedParameters_Temp.txt");
+                Path.GetTempPath(),   // use system temp folder — more reliable than MyDocuments
+                $"VME_SP_{Guid.NewGuid():N}.txt");
 
             try
             {
-                using (StreamWriter sw = File.CreateText(tempFile))
+                // Write the temp shared parameter file
+                using (StreamWriter sw = new StreamWriter(tempFile, false, System.Text.Encoding.UTF8))
                 {
                     sw.WriteLine("# This is a Revit shared parameter file.");
                     sw.WriteLine("# Do not edit manually.");
                     sw.WriteLine("*META\tVERSION\tMINVERSION");
-                    sw.WriteLine("META\t2.0\t2.0");
+                    sw.WriteLine("META\t2\t1");
                     sw.WriteLine("*GROUP\tID\tNAME");
                     sw.WriteLine("GROUP\t1\tVME_Parameters");
-                    sw.WriteLine("*PARAM\tGUID\tNAME\tDATATYPE\tDATACATEGORY\tGROUP\tVISIBLE\tDESCRIPTION\tUSERMODIFIABLE");
+                    sw.WriteLine("*PARAM\tGUID\tNAME\tDATATYPE\tDATACATEGORY\tGROUP\tVISIBLE\tDESCRIPTION\tUSERMODIFIABLE\tHIDEWHENNOVALUE");
 
-                    if (!existing.Contains("Panel_Name"))
-                    {
-                        sw.WriteLine("PARAM\td8a55c2f-e8b2-4d2c-8cb4-3ef89a05b3cb\tPanel_Name\tTEXT\t\t1\t1\t\t1");
-                    }
-                    if (!existing.Contains("Weight_Kg"))
-                    {
-                        sw.WriteLine("PARAM\tb1a2c3d4-e5f6-4a7b-8c9d-0e1f2a3b4c5d\tWeight_Kg\tNUMBER\t\t1\t1\t\t1");
-                    }
-                    if (!existing.Contains("Weight_Dia_Total"))
-                    {
-                        sw.WriteLine("PARAM\tc2b3d4e5-f6a7-4b8c-9d0e-1f2a3b4c5d6e\tWeight_Dia_Total\tNUMBER\t\t1\t1\t\t1");
-                    }
-                    if (!existing.Contains("Summary_Footer_Label"))
-                    {
-                        sw.WriteLine("PARAM\td3c4e5f6-a7b8-4c9d-0e1f-2a3b4c5d6e7f\tSummary_Footer_Label\tTEXT\t\t1\t1\t\t1");
-                    }
-                    if (!existing.Contains("Summary_Footer_Length"))
-                    {
-                        sw.WriteLine("PARAM\te4d5f6a7-b8c9-4d0e-1f2a-3b4c5d6e7f8a\tSummary_Footer_Length\tTEXT\t\t1\t1\t\t1");
-                    }
-                    if (!existing.Contains("Summary_Footer_Weight"))
-                    {
-                        sw.WriteLine("PARAM\tf5e6a7b8-c9d0-4e1f-2a3b-4c5d6e7f8a9b\tSummary_Footer_Weight\tTEXT\t\t1\t1\t\t1");
-                    }
+                    if (needPanelName)
+                        sw.WriteLine("PARAM\td8a55c2f-e8b2-4d2c-8cb4-3ef89a05b3cb\tPanel_Name\tTEXT\t\t1\t1\t\t1\t0");
+                    if (needWeightKg)
+                        sw.WriteLine("PARAM\tb1a2c3d4-e5f6-4a7b-8c9d-0e1f2a3b4c5d\tWeight_Kg\tNUMBER\t\t1\t1\t\t1\t0");
+                    if (needWeightDia)
+                        sw.WriteLine("PARAM\tc2b3d4e5-f6a7-4b8c-9d0e-1f2a3b4c5d6e\tWeight_Dia_Total\tNUMBER\t\t1\t1\t\t1\t0");
+                    if (needFooterLabel)
+                        sw.WriteLine("PARAM\td3c4e5f6-a7b8-4c9d-0e1f-2a3b4c5d6e7f\tSummary_Footer_Label\tTEXT\t\t1\t1\t\t1\t0");
+                    if (needFooterLength)
+                        sw.WriteLine("PARAM\te4d5f6a7-b8c9-4d0e-1f2a-3b4c5d6e7f8a\tSummary_Footer_Length\tTEXT\t\t1\t1\t\t1\t0");
+                    if (needFooterWeight)
+                        sw.WriteLine("PARAM\tf5e6a7b8-c9d0-4e1f-2a3b-4c5d6e7f8a9b\tSummary_Footer_Weight\tTEXT\t\t1\t1\t\t1\t0");
                 }
 
+                // Point Revit at the temp file
                 app.SharedParametersFilename = tempFile;
-                DefinitionFile defFile = app.OpenSharedParameterFile();
-                if (defFile == null) return;
+
+                // IMPORTANT: verify Revit can actually open it before proceeding
+                DefinitionFile defFile = null;
+                try
+                {
+                    defFile = app.OpenSharedParameterFile();
+                }
+                catch (Exception openEx)
+                {
+                    TaskDialog.Show("Shared Parameter Error",
+                        $"Could not open temp shared parameter file:\n{openEx.Message}\n\nPath: {tempFile}");
+                    return;
+                }
+
+                if (defFile == null)
+                {
+                    TaskDialog.Show("Shared Parameter Error",
+                        "OpenSharedParameterFile returned null. The file may be malformed.");
+                    return;
+                }
 
                 DefinitionGroup defGroup = defFile.Groups.get_Item("VME_Parameters");
-                if (defGroup == null) return;
+                if (defGroup == null)
+                {
+                    TaskDialog.Show("Shared Parameter Error",
+                        "VME_Parameters group not found in temp file.");
+                    return;
+                }
 
                 using (Transaction trans = new Transaction(doc, "Create VME Shared Parameters"))
                 {
@@ -226,26 +259,41 @@ namespace Assembly_VME.Helpers
                     Category wallCat = doc.Settings.Categories.get_Item(BuiltInCategory.OST_Walls);
                     Category gmCat = doc.Settings.Categories.get_Item(BuiltInCategory.OST_GenericModel);
 
-                    BindTextParam(doc, app, defGroup, "Panel_Name", existing, wallCat, rebarCat, gmCat);
-                    BindNumberParam(doc, app, defGroup, "Weight_Kg", existing, rebarCat);
-                    BindNumberParam(doc, app, defGroup, "Weight_Dia_Total", existing, rebarCat);
-                    BindTextParam(doc, app, defGroup, "Summary_Footer_Label", existing, gmCat);
-                    BindTextParam(doc, app, defGroup, "Summary_Footer_Length", existing, gmCat);
-                    BindTextParam(doc, app, defGroup, "Summary_Footer_Weight", existing, gmCat);
+                    if (needPanelName)
+                        BindTextParam(doc, app, defGroup, "Panel_Name", boundAny, wallCat, rebarCat, gmCat);
+
+                    if (needWeightKg)
+                        BindNumberParam(doc, app, defGroup, "Weight_Kg", boundToRebar, rebarCat);
+
+                    if (needWeightDia)
+                        BindNumberParam(doc, app, defGroup, "Weight_Dia_Total", boundToRebar, rebarCat);
+
+                    if (needFooterLabel)
+                        BindTextParam(doc, app, defGroup, "Summary_Footer_Label", boundAny, gmCat);
+
+                    if (needFooterLength)
+                        BindTextParam(doc, app, defGroup, "Summary_Footer_Length", boundAny, gmCat);
+
+                    if (needFooterWeight)
+                        BindTextParam(doc, app, defGroup, "Summary_Footer_Weight", boundAny, gmCat);
 
                     trans.Commit();
                 }
             }
-            catch (Exception)
+            catch (Exception ex)
             {
-                // Silent fallback if binding fails in this environment.
+                TaskDialog.Show("ERROR", $"EnsureSharedParametersExist failed:\n{ex}");
             }
             finally
             {
-                app.SharedParametersFilename = originalSharedParamFile;
+                // Always restore the original shared param file first
+                app.SharedParametersFilename = originalSharedParamFile ?? string.Empty;
+
+                // Then delete the temp file — after restoring, Revit no longer holds it
                 try
                 {
-                    if (File.Exists(tempFile)) File.Delete(tempFile);
+                    if (File.Exists(tempFile))
+                        File.Delete(tempFile);
                 }
                 catch { }
             }
