@@ -1,0 +1,266 @@
+<Window x:Class="Assembly_VME.UI.VMEWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        Title="VME Precast Workspace" Height="750" Width="1100"
+        WindowStartupLocation="CenterScreen"
+        Background="#F1F5F9"
+        FontFamily="Segoe UI, Arial"
+        ResizeMode="CanResizeWithGrip">
+
+    <Window.Resources>
+        <BooleanToVisibilityConverter x:Key="BoolToVis"/>
+
+        <!-- Premium Colors -->
+        <SolidColorBrush x:Key="PrimaryBlue"    Color="#1E293B"/>
+        <SolidColorBrush x:Key="AccentBlue"     Color="#2563EB"/>
+        <SolidColorBrush x:Key="AccentRed"      Color="#E11D48"/>
+        <SolidColorBrush x:Key="AccentGreen"    Color="#059669"/>
+        <SolidColorBrush x:Key="AccentOrange"   Color="#EA580C"/>
+
+        <!-- Tab Item Style -->
+        <Style TargetType="TabItem">
+            <Setter Property="Padding" Value="24,12"/>
+            <Setter Property="FontSize" Value="14"/>
+            <Setter Property="FontWeight" Value="SemiBold"/>
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="TabItem">
+                        <Border x:Name="Border" BorderThickness="0,0,0,4" Margin="0,0,20,0" Padding="10,5">
+                            <ContentPresenter x:Name="ContentSite" VerticalAlignment="Center" HorizontalAlignment="Center" ContentSource="Header"/>
+                        </Border>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsSelected" Value="True">
+                                <Setter TargetName="Border" Property="BorderBrush" Value="#2563EB"/>
+                                <Setter Property="Foreground" Value="#2563EB"/>
+                                <Setter TargetName="Border" Property="Background" Value="#EFF6FF"/>
+                            </Trigger>
+                            <Trigger Property="IsSelected" Value="False">
+                                <Setter TargetName="Border" Property="BorderBrush" Value="Transparent"/>
+                                <Setter Property="Foreground" Value="#64748B"/>
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+
+        <!-- DataGrid Style -->
+        <Style x:Key="ModernDataGrid" TargetType="DataGrid">
+            <Setter Property="Background" Value="White"/>
+            <Setter Property="BorderThickness" Value="0"/>
+            <Setter Property="RowHeight" Value="32"/>
+            <Setter Property="GridLinesVisibility" Value="Horizontal"/>
+            <Setter Property="HorizontalGridLinesBrush" Value="#E2E8F0"/>
+            <Setter Property="HeadersVisibility" Value="Column"/>
+            <Setter Property="IsReadOnly" Value="True"/>
+            <Setter Property="AutoGenerateColumns" Value="False"/>
+        </Style>
+
+        <Style TargetType="DataGridColumnHeader">
+            <Setter Property="Background" Value="#F8FAFC"/>
+            <Setter Property="Foreground" Value="#475569"/>
+            <Setter Property="FontWeight" Value="Bold"/>
+            <Setter Property="Padding" Value="10,8"/>
+            <Setter Property="BorderThickness" Value="0,0,0,1"/>
+            <Setter Property="BorderBrush" Value="#E2E8F0"/>
+            <Setter Property="Height" Value="40"/>
+        </Style>
+    </Window.Resources>
+
+    <Grid>
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto"/>
+            <!-- Header -->
+            <RowDefinition Height="Auto"/>
+            <!-- Selection Bar -->
+            <RowDefinition Height="*"/>
+            <!-- Main Content -->
+            <RowDefinition Height="Auto"/>
+            <!-- Footer Status Bar -->
+        </Grid.RowDefinitions>
+
+        <!-- 0. Header Panel -->
+        <Border Grid.Row="0" Background="{StaticResource PrimaryBlue}" Padding="25,18">
+            <Grid>
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="*"/>
+                    <ColumnDefinition Width="Auto"/>
+                    <ColumnDefinition Width="Auto"/>
+                </Grid.ColumnDefinitions>
+
+                <StackPanel Grid.Column="0">
+                    <TextBlock Foreground="White" FontSize="22" FontWeight="Bold" Text="VME PRECAST WORKSPACE" />
+                    <Grid Margin="0,4,0,0">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="*" />
+                            <ColumnDefinition Width="Auto" />
+                        </Grid.ColumnDefinitions>
+
+                        <TextBlock Text="Integrated Assembly Management &amp; BBS Sync System"
+               Foreground="#94A3B8"
+               FontSize="12"
+               VerticalAlignment="Center"/>
+
+                        <TextBlock
+               Text="VME Precast Workspace v1.0.0"
+               Foreground="#94A3B8"
+               FontSize="12"
+               VerticalAlignment="Center" Margin="440,0,279,0"/>
+                    </Grid>
+                </StackPanel>
+
+                <StackPanel Grid.Column="1" Orientation="Horizontal" VerticalAlignment="Center">
+                    <!-- SOP / Assembly Help Button -->
+                    <Button Click="btnSOP_Click" Cursor="Hand" Margin="0,0,15,0" Background="Transparent" BorderThickness="0" ToolTip="Assembly SOP / Help">
+                        <Border Width="38" Height="38" Background="White" CornerRadius="4" Padding="2">
+                            <Image Source="pack://application:,,,/Assembly_VME;component/Apollo/Assets/SOP.png" RenderOptions.BitmapScalingMode="HighQuality" Margin="-16,-18,-16,-18"/>
+                        </Border>
+                    </Button>
+
+                    <!-- Help Button -->
+                    <Button Click="btnHelp_Click" Cursor="Hand" Margin="0,0,20,0" Background="Transparent" BorderThickness="0" ToolTip="VME Workspace Help">
+                        <Grid>
+                            <Ellipse Width="32" Height="32" Stroke="#94A3B8" StrokeThickness="2"/>
+                            <TextBlock Text="?" Foreground="#94A3B8" FontSize="20" FontWeight="Bold" HorizontalAlignment="Center" VerticalAlignment="Center" Margin="0,0,0,2"/>
+                        </Grid>
+                    </Button>
+                </StackPanel>
+
+                <Image Grid.Column="2" Source="pack://application:,,,/Assembly_VME;component/Apollo/logo.png" Height="40" HorizontalAlignment="Right" RenderOptions.BitmapScalingMode="HighQuality"/>
+            </Grid>
+        </Border>
+
+        <!-- 1. Selection & Actions Bar -->
+        <Border Grid.Row="1" Background="White" BorderBrush="#E2E8F0" BorderThickness="0,0,0,1" Padding="20,15">
+            <Grid>
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="Auto"/>
+                    <!-- Label -->
+                    <ColumnDefinition Width="280"/>
+                    <!-- Dropdown -->
+                    <ColumnDefinition Width="*"/>
+                    <!-- Info -->
+                    <ColumnDefinition Width="Auto"/>
+                    <!-- Buttons -->
+                </Grid.ColumnDefinitions>
+
+                <TextBlock Text="ASSEMBLY NAME:" FontWeight="Bold" Foreground="#334155" VerticalAlignment="Center" Margin="0,0,15,0"/>
+
+                <ComboBox Grid.Column="1" 
+                          ItemsSource="{Binding Assemblies}" 
+                          SelectedItem="{Binding SelectedAssembly}" 
+                          DisplayMemberPath="Name" 
+                          Height="38" 
+                          VerticalContentAlignment="Center"
+                          FontSize="14" FontWeight="SemiBold"/>
+
+                <TextBlock Grid.Column="2" Text="← Updates Revit Sheets automatically" 
+                           Foreground="#64748B" FontStyle="Italic" VerticalAlignment="Center" Margin="15,0,0,0" FontSize="12"/>
+
+                <StackPanel Grid.Column="3" Orientation="Horizontal">
+                    <Button Content="Sync All Assemblies" Command="{Binding SyncAllCommand}" Background="{StaticResource AccentBlue}" Foreground="White" Padding="15,0" Height="38" FontWeight="Bold" Margin="0,0,10,0"/>
+                    <Button Content="Export PDF" Command="{Binding ExportPdfCommand}" Background="{StaticResource AccentRed}" Foreground="White" Padding="15,0" Height="38" FontWeight="Bold" Margin="0,0,10,0"/>
+                    <Button Content="Batch Export All" Command="{Binding BatchExportCommand}" Background="{StaticResource AccentOrange}" Foreground="White" Padding="15,0" Height="38" FontWeight="Bold"/>
+                </StackPanel>
+            </Grid>
+        </Border>
+
+        <!-- 2. Workspace Tabs — only visible when an assembly is selected -->
+        <TabControl Grid.Row="2" Background="Transparent" BorderThickness="0" Margin="20"
+                    Visibility="{Binding IsAssemblySelected, Converter={StaticResource BoolToVis}}">
+
+            <!-- TAB: STEEL (BBS) -->
+            <TabItem Header="STEEL (BBS)">
+                <Grid Margin="0,15,0,0">
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="200"/>
+                        <!-- Summary -->
+                        <RowDefinition Height="*"/>
+                        <!-- Detailed BBS -->
+                    </Grid.RowDefinitions>
+
+                    <!-- Summary Table -->
+                    <Border Grid.Row="0" Background="White" CornerRadius="8" BorderBrush="#E2E8F0" BorderThickness="1" Margin="0,0,0,15" Padding="15">
+                        <DockPanel>
+                            <TextBlock DockPanel.Dock="Top" Text="Summary Schedule (Material Take-off)" FontWeight="Bold" FontSize="13" Margin="0,0,0,10" Foreground="{StaticResource PrimaryBlue}"/>
+                            <DataGrid Style="{StaticResource ModernDataGrid}" ItemsSource="{Binding CurrentMaterialSummary}">
+                                <DataGrid.Columns>
+                                    <DataGridTextColumn Header="Bar Diameter"    Binding="{Binding BarDiameter}" Width="*"/>
+                                    <DataGridTextColumn Header="Total Bar Length" Binding="{Binding TotalLength}"  Width="*"/>
+                                    <DataGridTextColumn Header="Weight (kg)"     Binding="{Binding Weight}"      Width="*" FontWeight="Bold" Foreground="{StaticResource PrimaryBlue}"/>
+                                </DataGrid.Columns>
+                            </DataGrid>
+                        </DockPanel>
+                    </Border>
+
+                    <!-- Detailed BBS Table -->
+                    <Border Grid.Row="1" Background="White" CornerRadius="8" BorderBrush="#E2E8F0" BorderThickness="1" Padding="15">
+                        <DockPanel>
+                            <TextBlock DockPanel.Dock="Top" Text="Rebar Bending Schedule (BBS)" FontWeight="Bold" FontSize="13" Margin="0,0,0,10" Foreground="{StaticResource PrimaryBlue}"/>
+                            <DataGrid Style="{StaticResource ModernDataGrid}" ItemsSource="{Binding CurrentBbs}">
+                                <DataGrid.Columns>
+                                    <DataGridTextColumn Header="Mark"      Binding="{Binding Mark}"       Width="70"  FontWeight="Bold"/>
+                                    <DataGridTextColumn Header="Type"      Binding="{Binding Type}"       Width="100"/>
+                                    <DataGridTextColumn Header="Size"      Binding="{Binding Size}"       Width="80"/>
+                                    <DataGridTextColumn Header="Shape"     Binding="{Binding Shape}"      Width="70"/>
+                                    <DataGridTextColumn Header="A"         Binding="{Binding DimA}"       Width="65"/>
+                                    <DataGridTextColumn Header="B"         Binding="{Binding DimB}"       Width="65"/>
+                                    <DataGridTextColumn Header="C"         Binding="{Binding DimC}"       Width="65"/>
+                                    <DataGridTextColumn Header="D"         Binding="{Binding DimD}"       Width="65"/>
+                                    <DataGridTextColumn Header="E"         Binding="{Binding DimE}"       Width="65"/>
+                                    <DataGridTextColumn Header="Bar Len"   Binding="{Binding BarLength}"  Width="85"/>
+                                    <DataGridTextColumn Header="Total Len" Binding="{Binding TotalLength}" Width="100"/>
+                                    <DataGridTextColumn Header="Qty"       Binding="{Binding Quantity}"   Width="60"/>
+                                    <DataGridTextColumn Header="Weight"    Binding="{Binding Weight}"     Width="90" FontWeight="Bold" Foreground="{StaticResource AccentBlue}"/>
+                                </DataGrid.Columns>
+                            </DataGrid>
+                        </DockPanel>
+                    </Border>
+                </Grid>
+            </TabItem>
+
+            <!-- TAB: CONCRETE -->
+            <TabItem Header="CONCRETE">
+                <Border Background="White" CornerRadius="8" BorderBrush="#E2E8F0" BorderThickness="1" Margin="0,15,0,0" Padding="15">
+                    <DockPanel>
+                        <TextBlock DockPanel.Dock="Top" Text="Wall Schedule (Concrete Details)" FontWeight="Bold" FontSize="13" Margin="0,0,0,10" Foreground="{StaticResource PrimaryBlue}"/>
+                        <DataGrid Style="{StaticResource ModernDataGrid}" ItemsSource="{Binding CurrentConcrete}">
+                            <DataGrid.Columns>
+                                <DataGridTextColumn Header="Mark"       Binding="{Binding Mark}"   Width="*"/>
+                                <DataGridTextColumn Header="Length"     Binding="{Binding Length}" Width="*"/>
+                                <DataGridTextColumn Header="Height"     Binding="{Binding Height}" Width="*"/>
+                                <DataGridTextColumn Header="Area"       Binding="{Binding Area}"   Width="*"/>
+                                <DataGridTextColumn Header="Volume"     Binding="{Binding Volume}" Width="*"/>
+                                <DataGridTextColumn Header="Weight (kg)" Binding="{Binding Weight}" Width="*" FontWeight="Bold" Foreground="{StaticResource AccentGreen}"/>
+                            </DataGrid.Columns>
+                        </DataGrid>
+                    </DockPanel>
+                </Border>
+            </TabItem>
+
+            <!-- TAB: HOOKS & EMBEDS -->
+            <TabItem Header="HOOKS &amp; EMBEDS">
+                <Border Background="White" CornerRadius="8" BorderBrush="#E2E8F0" BorderThickness="1" Margin="0,15,0,0" Padding="15">
+                    <DockPanel>
+                        <TextBlock DockPanel.Dock="Top" Text="Generic Model Schedule (Hooks &amp; Embeds)" FontWeight="Bold" FontSize="13" Margin="0,0,0,10" Foreground="{StaticResource PrimaryBlue}"/>
+                        <DataGrid Style="{StaticResource ModernDataGrid}" ItemsSource="{Binding CurrentHooks}">
+                            <DataGrid.Columns>
+                                <DataGridTextColumn Header="Mark"  Binding="{Binding Mark}"  Width="150" FontWeight="Bold"/>
+                                <DataGridTextColumn Header="Type"  Binding="{Binding Type}"  Width="*"/>
+                                <DataGridTextColumn Header="Count" Binding="{Binding Count}" Width="120" FontWeight="Bold" Foreground="{StaticResource AccentBlue}"/>
+                            </DataGrid.Columns>
+                        </DataGrid>
+                    </DockPanel>
+                </Border>
+            </TabItem>
+        </TabControl>
+
+        <!-- 3. Status Bar -->
+        <Border Grid.Row="3" Background="{StaticResource PrimaryBlue}" Padding="20,10">
+            <DockPanel>
+                <TextBlock Text="{Binding StatusText}" Foreground="#E2E8F0" FontSize="12" VerticalAlignment="Center"/>
+                <TextBlock Foreground="#64748B" FontSize="12" HorizontalAlignment="Right" VerticalAlignment="Center"><Run Text="VME Precast Workspace v1.0"/><Run Language="en-in" Text=".0"/><LineBreak/><Run Language="en-in"/></TextBlock>
+            </DockPanel>
+        </Border>
+    </Grid>
+</Window>
