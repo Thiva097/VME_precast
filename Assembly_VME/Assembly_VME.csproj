@@ -23,6 +23,30 @@
   </PropertyGroup>
 
   <ItemGroup>
+    <Resource Include="Apollo\Assets\tank.png" />
+    <Resource Include="Apollo\Assets\drain.png" />
+    <Resource Include="Apollo\Assets\wall.png" />
+    <Resource Include="Apollo\Assets\ODF.png" />
+    <Resource Include="Apollo\Assets\SOP.png" />
+    <Resource Include="Apollo\Assets\config.png" />
+    <Resource Include="Apollo\Assets\config_ribbon.png" />
+    <Resource Include="Apollo\logo.png" />
+    <Content Include="Apollo\Assets\configurator_VME.pdf">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </Content>
+    <Content Include="Apollo\Assets\Assembly_help.pdf">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </Content>
+    <Content Include="Apollo\Assets\VME_Workspace.pdf">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </Content>
+  </ItemGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Newtonsoft.Json" Version="13.0.4" />
+  </ItemGroup>
+
+  <ItemGroup>
     <!-- Reference Revit 2025 API dlls -->
     <Reference Include="RevitAPI">
       <HintPath>C:\Program Files\Autodesk\Revit 2025\RevitAPI.dll</HintPath>

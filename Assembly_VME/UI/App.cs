@@ -1,5 +1,5 @@
-using System;
 using Autodesk.Revit.UI;
+using System;
 using System.Reflection;
 using System.Windows.Media.Imaging;
 
@@ -9,37 +9,56 @@ namespace Assembly_VME.UI
     {
         public Result OnStartup(UIControlledApplication application)
         {
-            // Create a custom ribbon tab
-            string tabName = "VME Tools";
+            if (!LicenseValidator.IsLicensed())
+            {
+                string mac = LicenseValidator.GetMacAddress();
+                TaskDialog.Show("License Invalid",
+                    "This machine is not licensed.\n\n" +
+                    "Please send this MAC ID to activate:\n\n" + mac);
+                return Result.Failed;
+            }
+
+            string tabName = "VME";
+            try { application.CreateRibbonTab(tabName); }
+            catch { /* already exists */ }
+
+            string assemblyPath = Assembly.GetExecutingAssembly().Location;
+
+            // ── Panel 1: VME Apollo (Configurator Tool) ────────────────────
+            //RibbonPanel apolloPanel = application.CreateRibbonPanel(tabName, "VME Configurator");
+
+            //PushButtonData apolloBtn = new PushButtonData(
+            //    "cmdApollo",
+            //    "Configurator",
+            //    assemblyPath,
+            //    "VME_Apollo.Command");
+            //apolloBtn.ToolTip = "Open the VME Apollo Water Tank Configurator.";
+
+            //PushButton pbApollo = apolloPanel.AddItem(apolloBtn) as PushButton;
+            //try
+            //{
+            //    pbApollo.LargeImage = new BitmapImage(new Uri(
+            //        "pack://application:,,,/Assembly_VME;component/Apollo/Assets/config_ribbon.png"));
+            //}
+            //catch { }
+
+            // ── Panel 2: VME Workspace (BBS Tool) ─────────────────────────
+            RibbonPanel assemblyPanel = application.CreateRibbonPanel(tabName, "VME BBS");
+
+            PushButtonData bbsBtn = new PushButtonData(
+                "cmdBBS",
+                "BBS Workspace",
+                assemblyPath,
+                "Assembly_VME.Commands.VMECommand");
+            bbsBtn.ToolTip = "Open the VME Precast BBS Workspace.";
+
+            PushButton pbBBS = assemblyPanel.AddItem(bbsBtn) as PushButton;
             try
             {
-                application.CreateRibbonTab(tabName);
+                pbBBS.LargeImage = new BitmapImage(new Uri(
+                    "pack://application:,,,/Assembly_VME;component/Apollo/Assets/config_ribbon.png"));
             }
-            catch (Exception)
-            {
-                // Tab might already exist
-            }
-
-            // Create a ribbon panel
-            RibbonPanel panel = application.CreateRibbonPanel(tabName, "BBS Sync");
-
-            // Get the assembly path
-            string thisAssemblyPath = Assembly.GetExecutingAssembly().Location;
-
-            // Create push button for the BBS Sync Command
-            PushButtonData buttonData = new PushButtonData(
-                "cmdSyncBbs",
-                "Sync BBS\nParameters",
-                thisAssemblyPath,
-                "Assembly_VME.Commands.SyncAssemblyBbsCommand");
-
-            buttonData.ToolTip = "Synchronizes Assembly Name to Wall, Rebar, and Generic Model Panel_Name parameter.";
-
-            // Add the button to the panel
-            PushButton pb = panel.AddItem(buttonData) as PushButton;
-
-            // Note: You can add an icon here if you have a 32x32 image as a resource:
-            // pb.LargeImage = new BitmapImage(new Uri("pack://application:,,,/Assembly_VME;component/Resources/icon32.png"));
+            catch { }
 
             return Result.Succeeded;
         }

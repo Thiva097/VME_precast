@@ -1,0 +1,563 @@
+<Window x:Class="VME_Apollo.ConfiguratorWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        Title="Precast Configurator" Height="750" Width="550"
+        WindowStartupLocation="CenterScreen" Background="Transparent"
+        AllowsTransparency="True" WindowStyle="None"
+        FontFamily="Segoe UI" UseLayoutRounding="True">
+    <Window.Resources>
+        <!-- Colors -->
+        <SolidColorBrush x:Key="PrimaryBlue"    Color="#2d4a7a"/>
+        <SolidColorBrush x:Key="SelectedBlueBg" Color="#e8f0fe"/>
+        <SolidColorBrush x:Key="BorderGray"     Color="#dddddd"/>
+        <SolidColorBrush x:Key="TextGray"       Color="#666666"/>
+        <SolidColorBrush x:Key="DoneGreenBg"    Color="#e6f4ea"/>
+        <SolidColorBrush x:Key="DoneGreenText"  Color="#137333"/>
+        <SolidColorBrush x:Key="TitleBarBg"     Color="#f8f9fa"/>
+
+        <!-- Tab Item Style -->
+        <Style TargetType="TabItem">
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="TabItem">
+                        <Border Name="Border" Margin="0,0,5,0" Padding="15,10" Background="#eeeeee" CornerRadius="5,5,0,0">
+                            <ContentPresenter x:Name="ContentSite" VerticalAlignment="Center" HorizontalAlignment="Center" ContentSource="Header"/>
+                        </Border>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsSelected" Value="True">
+                                <Setter TargetName="Border" Property="Background" Value="White"/>
+                                <Setter TargetName="Border" Property="BorderBrush" Value="{StaticResource BorderGray}"/>
+                                <Setter TargetName="Border" Property="BorderThickness" Value="1,1,1,0"/>
+                                <Setter Property="Foreground" Value="{StaticResource PrimaryBlue}"/>
+                                <Setter Property="FontWeight" Value="SemiBold"/>
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+
+        <!-- Window Control Button Style -->
+        <Style x:Key="WindowControlButtonStyle" TargetType="Button">
+            <Setter Property="Background" Value="Transparent"/>
+            <Setter Property="BorderThickness" Value="0"/>
+            <Setter Property="Width" Value="40"/>
+            <Setter Property="Height" Value="32"/>
+            <Setter Property="Foreground" Value="#555555"/>
+            <Setter Property="Cursor" Value="Hand"/>
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="Button">
+                        <Border Background="{TemplateBinding Background}">
+                            <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                        </Border>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+            <Style.Triggers>
+                <Trigger Property="IsMouseOver" Value="True">
+                    <Setter Property="Background" Value="#eeeeee"/>
+                </Trigger>
+            </Style.Triggers>
+        </Style>
+
+        <Style x:Key="CloseButtonStyle" TargetType="Button" BasedOn="{StaticResource WindowControlButtonStyle}">
+            <Style.Triggers>
+                <Trigger Property="IsMouseOver" Value="True">
+                    <Setter Property="Background" Value="#e81123"/>
+                    <Setter Property="Foreground" Value="White"/>
+                </Trigger>
+            </Style.Triggers>
+        </Style>
+
+        <!-- Section Border Style -->
+        <Style x:Key="SectionBorder" TargetType="Border">
+            <Setter Property="Background"        Value="White"/>
+            <Setter Property="BorderBrush"       Value="{StaticResource BorderGray}"/>
+            <Setter Property="BorderThickness"   Value="1"/>
+            <Setter Property="CornerRadius"      Value="3"/>
+            <Setter Property="Padding"           Value="12"/>
+            <Setter Property="Margin"            Value="0,0,0,12"/>
+        </Style>
+
+        <Style x:Key="SectionTitle" TargetType="TextBlock">
+            <Setter Property="FontSize"      Value="11"/>
+            <Setter Property="FontWeight"    Value="SemiBold"/>
+            <Setter Property="Foreground"    Value="#555555"/>
+            <Setter Property="Margin"        Value="0,0,0,10"/>
+        </Style>
+
+        <Style x:Key="GridButtonStyle" TargetType="ToggleButton">
+            <Setter Property="Background"          Value="White"/>
+            <Setter Property="BorderBrush"         Value="#cccccc"/>
+            <Setter Property="BorderThickness"     Value="1.5"/>
+            <Setter Property="Padding"             Value="10"/>
+            <Setter Property="Margin"              Value="4"/>
+            <Setter Property="OverridesDefaultStyle" Value="True"/>
+            <Setter Property="Cursor"              Value="Hand"/>
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="ToggleButton">
+                        <Border Background="{TemplateBinding Background}"
+                                BorderBrush="{TemplateBinding BorderBrush}"
+                                BorderThickness="{TemplateBinding BorderThickness}"
+                                CornerRadius="3">
+                            <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                        </Border>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsMouseOver" Value="True">
+                                <Setter Property="BorderBrush" Value="{StaticResource PrimaryBlue}"/>
+                            </Trigger>
+                            <Trigger Property="IsChecked" Value="True">
+                                <Setter Property="Background"  Value="{StaticResource SelectedBlueBg}"/>
+                                <Setter Property="BorderBrush" Value="{StaticResource PrimaryBlue}"/>
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+
+        <Style x:Key="ActionButtonStyle" TargetType="Button">
+            <Setter Property="Background"              Value="White"/>
+            <Setter Property="BorderBrush"             Value="{StaticResource BorderGray}"/>
+            <Setter Property="BorderThickness"         Value="1.5"/>
+            <Setter Property="Padding"                 Value="12,8"/>
+            <Setter Property="Margin"                  Value="0,0,0,6"/>
+            <Setter Property="FontSize"                Value="11"/>
+            <Setter Property="HorizontalContentAlignment" Value="Stretch"/>
+            <Setter Property="Cursor"                  Value="Hand"/>
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="Button">
+                        <Border Background="{TemplateBinding Background}"
+                                BorderBrush="{TemplateBinding BorderBrush}"
+                                BorderThickness="{TemplateBinding BorderThickness}"
+                                CornerRadius="3">
+                            <Grid>
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="30"/>
+                                    <ColumnDefinition Width="*"/>
+                                    <ColumnDefinition Width="Auto"/>
+                                </Grid.ColumnDefinitions>
+                                <ContentPresenter Grid.Column="1" VerticalAlignment="Center"/>
+                            </Grid>
+                        </Border>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsEnabled" Value="False">
+                                <Setter Property="Opacity" Value="0.4"/>
+                            </Trigger>
+                            <Trigger Property="IsMouseOver" Value="True">
+                                <Setter Property="BorderBrush" Value="{StaticResource PrimaryBlue}"/>
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+        <Style x:Key="SettingsButtonStyle" TargetType="Button">
+            <Setter Property="Background" Value="{StaticResource PrimaryBlue}"/>
+            <Setter Property="Padding" Value="0"/>
+            <Setter Property="Margin" Value="5,0,0,6"/>
+            <Setter Property="Cursor" Value="Hand"/>
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="Button">
+                        <Border Background="{TemplateBinding Background}" CornerRadius="3">
+                            <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                        </Border>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+    </Window.Resources>
+
+    <Border BorderBrush="{StaticResource BorderGray}" BorderThickness="1" Background="White" CornerRadius="8">
+        <DockPanel>
+            <!-- Custom Title Bar -->
+            <Border DockPanel.Dock="Top" Background="{StaticResource TitleBarBg}" Height="40" CornerRadius="8,8,0,0" MouseLeftButtonDown="TitleBar_MouseDown">
+                <Grid>
+                    <StackPanel Orientation="Horizontal" VerticalAlignment="Center" Margin="10,0">
+                        <Image Source="pack://application:,,,/Assembly_VME;component/Apollo/Assets/ODF.png" Height="24" RenderOptions.BitmapScalingMode="HighQuality"/>
+                    </StackPanel>
+
+                    <!-- Centered Title and Version -->
+                    <TextBlock Text="Precast Configurator V 1.0.0.0" 
+                               VerticalAlignment="Center" 
+                               HorizontalAlignment="Center" 
+                               FontWeight="SemiBold" 
+                               Foreground="{StaticResource PrimaryBlue}" 
+                               FontSize="12"/>
+                    
+                   <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" VerticalAlignment="Top">
+                        <!-- <Button Style="{StaticResource WindowControlButtonStyle}" Click="SopButton_Click" ToolTip="Standard Operating Procedure">
+                            <StackPanel Orientation="Horizontal">
+                                <TextBlock Text="SOP" VerticalAlignment="Center" FontSize="10"/>
+                            </StackPanel>
+                        </Button>-->
+                        <Button Style="{StaticResource WindowControlButtonStyle}" Content="?" Click="HelpButton_Click" ToolTip="Help"/>
+                        <Button Style="{StaticResource WindowControlButtonStyle}" Content="—" Click="MinimizeButton_Click"/>
+                        <Button Style="{StaticResource WindowControlButtonStyle}" Content="☐" Click="MaximizeButton_Click"/>
+                        <Button Style="{StaticResource CloseButtonStyle}" Content="✕" Click="CloseButton_Click"/>
+                        </StackPanel>
+                </Grid>
+            </Border>
+
+            <!-- Status Bar -->
+            <Border DockPanel.Dock="Bottom" Background="{StaticResource PrimaryBlue}" Padding="12,4" CornerRadius="0,0,8,8">
+                <TextBlock Name="statusText" Text="Ready" FontSize="11" Foreground="White" Opacity="0.85"/>
+            </Border>
+
+            <!-- Main Navigation Tabs -->
+            <TabControl BorderThickness="0,1,0,0" Margin="5">
+                <!-- PRECAST TAB -->
+                <TabItem Header="Precast" Margin="0,6,0,0">
+                    <DockPanel>
+                        <!-- Footer Button Area -->
+                        <Border DockPanel.Dock="Bottom" Padding="15,10" Background="#f8f9fa" BorderBrush="#dee2e6" BorderThickness="0,1,0,0">
+                            <UniformGrid Columns="2">
+                                <Button x:Name="btnGenerate" Style="{StaticResource ActionButtonStyle}" Click="btnGenerate_Click" Height="50" Margin="0,0,5,0">
+                                    <TextBlock Text="Generate Model" FontWeight="Bold" FontSize="14" HorizontalAlignment="Center"/>
+                                </Button>
+                                <Button x:Name="btnUpdate" Style="{StaticResource ActionButtonStyle}" Click="btnUpdate_Click" Height="50" Margin="5,0,0,0" IsEnabled="False">
+                                    <TextBlock Text="Update Model" FontWeight="Bold" FontSize="14" HorizontalAlignment="Center"/>
+                                </Button>
+                            </UniformGrid>
+                        </Border>
+
+                        <ScrollViewer VerticalScrollBarVisibility="Auto">
+                        <StackPanel Margin="15">
+                            <TextBlock Text="ELEMENT TYPE" Style="{StaticResource SectionTitle}"/>
+                            <UniformGrid Columns="3" Margin="0,0,0,20">
+                                <ToggleButton x:Name="rbWaterTank" Style="{StaticResource GridButtonStyle}" IsChecked="True" Click="ElementType_Click" Padding="5">
+                                    <StackPanel HorizontalAlignment="Center">
+                                        <Image Source="pack://application:,,,/Assembly_VME;component/Apollo/Assets/tank.png" Height="32" Margin="0,0,0,5" RenderOptions.BitmapScalingMode="HighQuality"/>
+                                        <TextBlock Text="Water Tank" FontSize="11" FontWeight="SemiBold" HorizontalAlignment="Center"/>
+                                    </StackPanel>
+                                </ToggleButton>
+                                <ToggleButton x:Name="rbDrain" Style="{StaticResource GridButtonStyle}" Click="ElementType_Click" Padding="5">
+                                    <StackPanel HorizontalAlignment="Center">
+                                        <Image Source="pack://application:,,,/Assembly_VME;component/Apollo/Assets/drain.png" Height="32" Margin="0,0,0,5" RenderOptions.BitmapScalingMode="HighQuality"/>
+                                        <TextBlock Text="Drain" FontSize="11" FontWeight="SemiBold" HorizontalAlignment="Center"/>
+                                    </StackPanel>
+                                </ToggleButton>
+                                <ToggleButton x:Name="rbWall" Style="{StaticResource GridButtonStyle}" Click="ElementType_Click" Padding="5">
+                                    <StackPanel HorizontalAlignment="Center">
+                                        <Image Source="pack://application:,,,/Assembly_VME;component/Apollo/Assets/wall.png" Height="32" Margin="0,0,0,5" RenderOptions.BitmapScalingMode="HighQuality"/>
+                                        <TextBlock Text="Wall" FontSize="11" FontWeight="SemiBold" HorizontalAlignment="Center"/>
+                                    </StackPanel>
+                                </ToggleButton>
+                            </UniformGrid>
+
+                            <!-- Specification Section -->
+                            <Border x:Name="sectionSpecification" Style="{StaticResource SectionBorder}">
+                                <StackPanel>
+                                    <TextBlock x:Name="typeTag" Text="TYPE OF TANK" FontWeight="Bold" Margin="0,0,0,10" Foreground="{StaticResource PrimaryBlue}"/>
+                                    
+                                    <UniformGrid x:Name="gridTankTypes" Columns="3" Margin="0,0,0,10">
+                                        <ToggleButton Name="btnMonolithic" Style="{StaticResource GridButtonStyle}" IsChecked="True" Click="SpecType_Click" Content="Monolithic Tank" Height="30" Width="129"/>
+                                        <ToggleButton Name="btnPT" Style="{StaticResource GridButtonStyle}" Click="SpecType_Click" Content="PT Tank" Width="133"/>
+                                        <ToggleButton Name="btnCustomPT" Style="{StaticResource GridButtonStyle}" Click="SpecType_Click" Content="Custom PT Tank" Width="130"/>
+                                    </UniformGrid>
+
+                                    <!-- Standard Panel -->
+                                    <StackPanel Name="panelStandard">
+                                        <!-- Monolithic Capacities -->
+                                        <StackPanel Name="panelMonolithicCap" Visibility="Visible">
+                                            <TextBlock Text="TANK CAPACITY" Style="{StaticResource SectionTitle}"/>
+                                            <UniformGrid Columns="3" Margin="0,0,0,10">
+                                                <ToggleButton Name="cap6" Content="6 KL" Style="{StaticResource GridButtonStyle}" IsChecked="True" Click="Capacity_Click" Width="130" Height="25"/>
+                                                <ToggleButton Name="cap105" Content="10.5 KL" Style="{StaticResource GridButtonStyle}" Click="Capacity_Click" Width="129"/>
+                                                <ToggleButton Name="cap125" Content="12.5 KL" Style="{StaticResource GridButtonStyle}" Click="Capacity_Click" Width="128"/>
+                                            </UniformGrid>
+                                        </StackPanel>
+
+                                        <!-- PT Tank Capacities -->
+                                        <StackPanel Name="panelPTCap" Visibility="Collapsed">
+                                            <TextBlock Text="TANK CAPACITY" Style="{StaticResource SectionTitle}"/>
+                                            <UniformGrid Columns="4" Margin="0,0,0,10">
+                                                <ToggleButton Name="cap25" Content="25 KL" Style="{StaticResource GridButtonStyle}" IsChecked="True" Click="Capacity_Click"/>
+                                                <ToggleButton Name="cap30" Content="30 KL" Style="{StaticResource GridButtonStyle}" Click="Capacity_Click"/>
+                                                <ToggleButton Name="cap45" Content="45 KL" Style="{StaticResource GridButtonStyle}" Click="Capacity_Click"/>
+                                                <ToggleButton Name="cap50" Content="50 KL" Style="{StaticResource GridButtonStyle}" Click="Capacity_Click"/>
+                                            </UniformGrid>
+                                        </StackPanel>
+                                    </StackPanel>
+
+                                    <!-- Non-Standard / Dimension Display Panel -->
+                                    <!-- Not Implemented Message -->
+                                    <Border x:Name="panelNotImplemented" Visibility="Collapsed" Padding="30" Background="#f8f9fa" CornerRadius="5">
+                                        <StackPanel VerticalAlignment="Center">
+                                            <Image Source="pack://application:,,,/Assembly_VME;component/Apollo/Assets/tank.png" Height="64" Opacity="0.1" Margin="0,0,0,15"/>
+                                            <TextBlock Text="Feature Coming Soon" FontWeight="Bold" FontSize="16" Foreground="#BDC3C7" HorizontalAlignment="Center"/>
+                                            <TextBlock Text="Configuration for Drain and Wall elements is currently under development." FontSize="11" Foreground="#BDC3C7" HorizontalAlignment="Center" TextAlignment="Center" Margin="0,10,0,0"/>
+                                        </StackPanel>
+                                    </Border>
+
+                                    <!-- Non-Standard / Dimension Display Panel -->
+                                    <StackPanel Name="panelNonStandard" Visibility="Visible">
+                                        <TextBlock Text="TANK DIMENSIONS (in meters)" Style="{StaticResource SectionTitle}"/>
+                                        <UniformGrid Columns="3">
+                                            <StackPanel Margin="0,0,5,8">
+                                                <TextBlock Text="Length" FontSize="10" Foreground="#7F8C8D"/>
+                                                <TextBox Name="txtLength" Text="2.0" Padding="5" IsReadOnly="True" Background="#F9F9F9" TextChanged="Dimension_TextChanged"/>
+                                            </StackPanel>
+                                            <StackPanel Margin="0,0,5,8">
+                                                <TextBlock Text="Width" FontSize="10" Foreground="#7F8C8D"/>
+                                                <TextBox Name="txtWidth" Text="1.5" Padding="5" IsReadOnly="True" Background="#F9F9F9" TextChanged="Dimension_TextChanged"/>
+                                            </StackPanel>
+                                            <StackPanel Margin="0,0,0,8">
+                                                <TextBlock Text="Height" FontSize="10" Foreground="#7F8C8D"/>
+                                                <TextBox Name="txtHeight" Text="2.0" Padding="5" IsReadOnly="True" Background="#F9F9F9" TextChanged="Dimension_TextChanged"/>
+                                            </StackPanel>
+                                            <StackPanel Margin="0,0,5,0">
+                                                <TextBlock Text="Wall Thick." FontSize="10" Foreground="#7F8C8D"/>
+                                                <TextBox x:Name="txtWallThickness" Text="0.085" Padding="5" IsReadOnly="True" Background="#F9F9F9"/>
+                                            </StackPanel>
+                                            <StackPanel Margin="0,0,5,0">
+                                                <TextBlock Text="Base Slab" FontSize="10" Foreground="#7F8C8D"/>
+                                                <TextBox x:Name="txtBaseSlabThickness" Text="0.125" Padding="5" IsReadOnly="True" Background="#F9F9F9"/>
+                                            </StackPanel>
+                                            <StackPanel>
+                                                <TextBlock Text="Cover Slab" FontSize="10" Foreground="#7F8C8D"/>
+                                                <TextBox x:Name="txtCoverSlabThickness" Text="0.15" Padding="5" IsReadOnly="True" Background="#F9F9F9"/>
+                                            </StackPanel>
+                                        </UniformGrid>
+                                        
+                                        <!-- Capacity Display -->
+                                        <Border x:Name="panelCapacity" Background="#e6f4ea" Padding="15,10" Margin="0,10,0,0" CornerRadius="5" Height="34" RenderTransformOrigin="0.506,0.385">
+                                            <DockPanel Margin="0,-10,0,-11">
+                                                <TextBlock Text="ESTIMATED TANK CAPACITY" FontSize="11" FontWeight="SemiBold" Foreground="#137333" VerticalAlignment="Center"/>
+                                                <TextBlock x:Name="lblCapacity" Text="0.00 KL" FontSize="16" FontWeight="Bold" Foreground="#137333" HorizontalAlignment="Right" VerticalAlignment="Center" RenderTransformOrigin="0.523,0.212"/>
+                                            </DockPanel>
+                                        </Border>
+                                        
+                                        <!-- Reinforcement -->
+                                        <StackPanel Name="panelReinforcement" Margin="0,15,0,0">
+                                            <TextBlock Text="REINFORCEMENT DETAILS (mm)" Style="{StaticResource SectionTitle}"/>
+                                            
+                                            <!-- Wall -->
+                                            <Border BorderBrush="#f0f0f0" BorderThickness="1" Padding="10" Margin="0,0,0,10" Background="#fcfcfc">
+                                                <StackPanel>
+                                                    <TextBlock Text="Wall Reinforcement" FontSize="10" FontWeight="SemiBold" Margin="0,0,0,5"/>
+                                                    <UniformGrid Columns="2">
+                                                        <StackPanel Margin="0,0,5,5">
+                                                            <TextBlock Text="H. Bar Dia" FontSize="9"/>
+                                                            <ComboBox x:Name="cbWallHBarDia" SelectedIndex="2">
+                                                                <ComboBoxItem Content="8"/><ComboBoxItem Content="10"/><ComboBoxItem Content="12"/><ComboBoxItem Content="16"/>
+                                                            </ComboBox>
+                                                        </StackPanel>
+                                                        <StackPanel Margin="0,0,0,5">
+                                                            <TextBlock Text="H. Spacing" FontSize="9"/>
+                                                            <TextBox x:Name="txtWallHSpacing" Text="150" Padding="3"/>
+                                                        </StackPanel>
+                                                        <StackPanel Margin="0,0,5,0">
+                                                            <TextBlock Text="V. Bar Dia" FontSize="9"/>
+                                                            <ComboBox x:Name="cbWallVBarDia" SelectedIndex="1">
+                                                                <ComboBoxItem Content="8"/><ComboBoxItem Content="10"/><ComboBoxItem Content="12"/><ComboBoxItem Content="16"/>
+                                                            </ComboBox>
+                                                        </StackPanel>
+                                                        <StackPanel>
+                                                            <TextBlock Text="V. Spacing" FontSize="9"/>
+                                                            <TextBox x:Name="txtWallVSpacing" Text="150" Padding="3"/>
+                                                        </StackPanel>
+                                                    </UniformGrid>
+                                                </StackPanel>
+                                            </Border>
+
+                                            <!-- Slab -->
+                                            <Border BorderBrush="#f0f0f0" BorderThickness="1" Padding="10" Background="#fcfcfc">
+                                                <StackPanel>
+                                                    <TextBlock Text="Slab Reinforcement" FontSize="10" FontWeight="SemiBold" Margin="0,0,0,5"/>
+                                                    <UniformGrid Columns="2">
+                                                        <StackPanel Margin="0,0,5,5">
+                                                            <TextBlock Text="Main Bar Dia" FontSize="9"/>
+                                                            <ComboBox x:Name="cbSlabMainBarDia" SelectedIndex="2">
+                                                                <ComboBoxItem Content="8"/><ComboBoxItem Content="10"/><ComboBoxItem Content="12"/><ComboBoxItem Content="16"/>
+                                                            </ComboBox>
+                                                        </StackPanel>
+                                                        <StackPanel Margin="0,0,0,5">
+                                                            <TextBlock Text="Main Spacing" FontSize="9"/>
+                                                            <TextBox x:Name="txtSlabMainSpacing" Text="150" Padding="3"/>
+                                                        </StackPanel>
+                                                        <StackPanel Margin="0,0,5,0">
+                                                            <TextBlock Text="Dist. Bar Dia" FontSize="9"/>
+                                                            <ComboBox x:Name="cbSlabDistBarDia" SelectedIndex="0">
+                                                                <ComboBoxItem Content="8"/><ComboBoxItem Content="10"/><ComboBoxItem Content="12"/><ComboBoxItem Content="16"/>
+                                                            </ComboBox>
+                                                        </StackPanel>
+                                                        <StackPanel>
+                                                            <TextBlock Text="Dist. Spacing" FontSize="9"/>
+                                                            <TextBox x:Name="txtSlabDistSpacing" Text="150" Padding="3"/>
+                                                        </StackPanel>
+                                                    </UniformGrid>
+                                                </StackPanel>
+                                            </Border>
+
+                                            <StackPanel Margin="0,10,0,0">
+                                                <TextBlock Text="Clear Cover (mm)" FontSize="9"/>
+                                                <TextBox Name="txtClearCover" Text="40" Padding="3" Width="60" HorizontalAlignment="Left"/>
+                                            </StackPanel>
+                                        </StackPanel>
+                                    </StackPanel>
+                                </StackPanel>
+                            </Border>
+
+                        </StackPanel>
+                    </ScrollViewer>
+                </DockPanel>
+            </TabItem>
+
+            <!-- UPDATE DRAWING TAB -->
+            <TabItem Header="Update Drawing" Margin="0,6,0,0">
+                <DockPanel Margin="10">
+                    <StackPanel DockPanel.Dock="Top" Margin="0,0,0,10">
+                        <TextBlock Text="DRAWING PRODUCTION" Style="{StaticResource SectionTitle}"/>
+                        <UniformGrid Columns="2" Margin="0,5,0,10">
+                            <Button x:Name="btnCreateDrawings" Style="{StaticResource ActionButtonStyle}" Click="btnCreateDrawings_Click" IsEnabled="False" Height="40" Margin="0,0,5,0">
+                                <TextBlock Text="Update Revit Sheet" FontWeight="Bold" HorizontalAlignment="Center"/>
+                            </Button>
+                            <Button Name="btnExportPDF" Style="{StaticResource ActionButtonStyle}" Click="btnExportPDF_Click" IsEnabled="False" Height="40" Margin="5,0,0,0" Background="#E74C3C">
+                                <TextBlock Text="Export to PDF" FontWeight="Bold" HorizontalAlignment="Center"/>
+                            </Button>
+                        </UniformGrid>
+                    </StackPanel>
+
+                    <Border BorderBrush="{StaticResource BorderGray}" BorderThickness="1" Background="#fcfcfc" CornerRadius="4">
+                        <Grid>
+                            <StackPanel VerticalAlignment="Center" HorizontalAlignment="Center">
+                                <Image Source="pack://application:,,,/Assembly_VME;component/Apollo/Assets/tank.png" Height="80" Opacity="0.1" Margin="0,0,0,15"/>
+                                <TextBlock Name="previewStatus" Text="No Drawing Generated" FontSize="14" Foreground="#BDC3C7" HorizontalAlignment="Center"/>
+                                <TextBlock Text="Complete Precast Tab to enable Drawing Production" FontSize="10" Foreground="#BDC3C7" HorizontalAlignment="Center" Margin="0,5,0,0"/>
+                            </StackPanel>
+                            <Image x:Name="imgDrawingPreview" Stretch="Uniform" Visibility="Collapsed"/>
+                        </Grid>
+                    </Border>
+                </DockPanel>
+            </TabItem>
+
+            <!-- UPDATE BOQ TAB -->
+            <TabItem Header="Update BOQ" Margin="0,6,0,0">
+                <DockPanel Margin="10">
+                    <!-- Footer Area -->
+                    <Border DockPanel.Dock="Bottom" Padding="15,10" Background="#f8f9fa" BorderBrush="#dee2e6" BorderThickness="0,1,0,0">
+                        <Button x:Name="btnExportBOQ" Style="{StaticResource ActionButtonStyle}" Click="btnExportBOQ_Click" IsEnabled="False" Height="40">
+                            <TextBlock Text="Export BOQ to Excel" FontWeight="Bold" HorizontalAlignment="Center"/>
+                        </Button>
+                    </Border>
+
+                    <StackPanel DockPanel.Dock="Top" Margin="0,0,0,10">
+                        <Grid>
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="*"/>
+                                <ColumnDefinition Width="40"/>
+                            </Grid.ColumnDefinitions>
+                            <Button x:Name="btnUpdateBOQ" Style="{StaticResource ActionButtonStyle}" Click="btnUpdateBOQ_Click" IsEnabled="False" Height="35">
+                                <TextBlock Text="Calculate BOQ Quantities" FontWeight="Bold" HorizontalAlignment="Center"/>
+                            </Button>
+                            <Button x:Name="btnShowRateSettings" Grid.Column="1" Style="{StaticResource SettingsButtonStyle}" Click="btnShowRateSettings_Click" Height="35" Width="35" ToolTip="Rate Settings">
+                                <Path Data="M19.14,12.94c0.04-0.3,0.06-0.61,0.06-0.94c0-0.32-0.02-0.64-0.07-0.94l2.03-1.58c0.18-0.14,0.23-0.41,0.12-0.61 l-1.92-3.32c-0.12-0.22-0.37-0.29-0.59-0.22l-2.39,0.96c-0.5-0.38-1.03-0.7-1.62-0.94L14.4,2.81c-0.04-0.24-0.24-0.41-0.48-0.41 h-3.84c-0.24,0-0.44,0.17-0.48,0.41L9.25,5.35C8.66,5.59,8.12,5.91,7.63,6.29L5.24,5.33c-0.22-0.08-0.47,0-0.59,0.22L2.74,8.87 C2.62,9.08,2.66,9.34,2.86,9.48l2.03,1.58C4.84,11.36,4.81,11.68,4.81,12c0,0.33,0.03,0.65,0.07,0.95l-2.03,1.58 c-0.18,0.14-0.23,0.41-0.12,0.61l1.92,3.32c0.12,0.22,0.37,0.29,0.59,0.22l2.39-0.96c0.5,0.38,1.03,0.7,1.62,0.94l0.36,2.54 c0.05,0.24,0.24,0.41,0.48,0.41h3.84c0.24,0,0.44-0.17,0.48-0.41l0.36-2.54c0.59-0.24,1.13-0.56,1.62-0.94l2.39,0.96 c0.22,0.08,0.47,0,0.59-0.22l1.92-3.32c0.12-0.22,0.07-0.47-0.12-0.61L19.14,12.94z M12,15.6c-1.98,0-3.6-1.62-3.6-3.6 s1.62-3.6,3.6-3.6s3.6,1.62,3.6,3.6S13.98,15.6,12,15.6z" 
+                                      Fill="White" Stretch="Uniform" Width="18" Height="18" HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                            </Button>
+                        </Grid>
+
+                        <!-- Rate Settings Panel -->
+                        <Border x:Name="panelRateSettings" Visibility="Collapsed" Background="#f8f9fa" BorderBrush="#dee2e6" BorderThickness="1" CornerRadius="4" Padding="10" Margin="0,5,0,10">
+                            <StackPanel>
+                                <TextBlock Text="UNIT RATES (₹)" FontWeight="Bold" FontSize="10" Foreground="{StaticResource PrimaryBlue}" Margin="0,0,0,8"/>
+                                <UniformGrid Columns="3">
+                                    <StackPanel Margin="0,0,5,0">
+                                        <TextBlock Text="Concrete (per m³)" FontSize="9"/>
+                                        <TextBox x:Name="txtRateConcrete" Text="5500" Padding="3"/>
+                                    </StackPanel>
+                                    <StackPanel Margin="0,0,5,0">
+                                        <TextBlock Text="Formwork (per m²)" FontSize="9"/>
+                                        <TextBox x:Name="txtRateFormwork" Text="450" Padding="3"/>
+                                    </StackPanel>
+                                    <StackPanel>
+                                        <TextBlock Text="Rebar (per kg)" FontSize="9"/>
+                                        <TextBox x:Name="txtRateRebar" Text="75" Padding="3"/>
+                                    </StackPanel>
+                                </UniformGrid>
+                                <Button Content="Save &amp; Update Rates" Margin="0,10,0,0" Padding="5" FontSize="10" Background="{StaticResource PrimaryBlue}" Foreground="White" Click="btnUpdateBOQ_Click"/>
+                            </StackPanel>
+                        </Border>
+                    </StackPanel>
+                    
+                    <Border x:Name="sectionBOQ" Visibility="Collapsed">
+                        <DockPanel>
+                            <Border DockPanel.Dock="Bottom" Background="#e8f0fe" Margin="0,10,0,0" Padding="15,10">
+                                <DockPanel>
+                                    <TextBlock Text="Total Estimated Cost" FontWeight="Bold" Foreground="{StaticResource PrimaryBlue}"/>
+                                    <TextBlock Name="txtTotalCost" Text="₹ 0" FontWeight="Bold" Foreground="{StaticResource PrimaryBlue}" HorizontalAlignment="Right"/>
+                                </DockPanel>
+                            </Border>
+                            
+                            <DataGrid Name="dgBOQ" AutoGenerateColumns="False" CanUserAddRows="False" 
+                                      HeadersVisibility="Column" GridLinesVisibility="None"
+                                      Background="White" BorderThickness="0" CellEditEnding="dgBOQ_CellEditEnding">
+                                <DataGrid.Columns>
+                                    <DataGridTextColumn Header="Description" Binding="{Binding Description}" Width="*"/>
+                                    <DataGridTextColumn Header="Qty" Binding="{Binding Qty, StringFormat={}{0:F2}}" Width="60"/>
+                                    <DataGridTextColumn Header="Unit" Binding="{Binding Unit}" Width="50"/>
+                                    <DataGridTextColumn Header="Rate" Binding="{Binding Rate}" Width="70"/>
+                                    <DataGridTextColumn Header="Amount" Binding="{Binding Amount, StringFormat={}{0:N0}}" Width="90" IsReadOnly="True"/>
+                                </DataGrid.Columns>
+                            </DataGrid>
+                        </DockPanel>
+                    </Border>
+                </DockPanel>
+            </TabItem>
+
+            <!-- UPDATE BBS TAB -->
+            <TabItem Header="Update BBS" Margin="0,6,0,0">
+                <DockPanel Margin="10">
+                    <!-- Footer Area -->
+                    <Border DockPanel.Dock="Bottom" Padding="15,10" Background="#f8f9fa" BorderBrush="#dee2e6" BorderThickness="0,1,0,0">
+                        <Button x:Name="btnExportBBS" Style="{StaticResource ActionButtonStyle}" Click="btnExportBBS_Click" IsEnabled="False" Height="40">
+                            <TextBlock Text="Export BBS to Excel" FontWeight="Bold" HorizontalAlignment="Center"/>
+                        </Button>
+                    </Border>
+
+                    <StackPanel DockPanel.Dock="Top" Margin="0,0,0,10">
+                        <TextBlock Text="REINFORCEMENT SCHEDULE" Style="{StaticResource SectionTitle}"/>
+                        <Button x:Name="btnUpdateBBS" Style="{StaticResource ActionButtonStyle}" Click="btnUpdateBBS_Click" IsEnabled="False" Height="40">
+                            <TextBlock Text="Generate Full Tank BBS Report" FontWeight="Bold" FontSize="14" HorizontalAlignment="Center"/>
+                        </Button>
+                    </StackPanel>
+                    
+                    <Border x:Name="sectionBBS" Visibility="Collapsed">
+                        <DockPanel>
+                            <Border DockPanel.Dock="Bottom" Background="#f8f9fa" Margin="0,10,0,0" Padding="15,10">
+                                <DockPanel>
+                                    <TextBlock Text="Total Reinforcement Weight" FontWeight="Bold" Foreground="{StaticResource PrimaryBlue}"/>
+                                    <TextBlock x:Name="txtTotalRebarWeight" Text="0.00 kg" FontWeight="Bold" Foreground="{StaticResource PrimaryBlue}" HorizontalAlignment="Right"/>
+                                </DockPanel>
+                            </Border>
+                            
+                            <DataGrid x:Name="dgBBS" AutoGenerateColumns="False" CanUserAddRows="False" 
+                                      HeadersVisibility="Column" GridLinesVisibility="Horizontal"
+                                      Background="White" BorderThickness="0" RowHeaderWidth="0">
+                                <DataGrid.Columns>
+                                    <DataGridTextColumn Header="Mark" Binding="{Binding Mark}" Width="40"/>
+                                    <DataGridTextColumn Header="Dia" Binding="{Binding Diameter}" Width="35"/>
+                                    <DataGridTextColumn Header="Shape" Binding="{Binding Shape}" Width="60"/>
+                                    <DataGridTextColumn Header="A" Binding="{Binding A}" Width="40"/>
+                                    <DataGridTextColumn Header="B" Binding="{Binding B}" Width="40"/>
+                                    <DataGridTextColumn Header="C" Binding="{Binding C}" Width="40"/>
+                                    <DataGridTextColumn Header="D" Binding="{Binding D}" Width="40"/>
+                                    <DataGridTextColumn Header="E" Binding="{Binding E}" Width="40"/>
+                                    <DataGridTextColumn Header="Bar Len" Binding="{Binding BarLength, StringFormat={}{0:F0}}" Width="60"/>
+                                    <DataGridTextColumn Header="Qty" Binding="{Binding Quantity}" Width="40"/>
+                                    <DataGridTextColumn Header="Weight" Binding="{Binding Weight, StringFormat={}{0:F2}}" Width="60"/>
+                                </DataGrid.Columns>
+                            </DataGrid>
+                        </DockPanel>
+                    </Border>
+                </DockPanel>
+            </TabItem>
+
+            </TabControl>
+        </DockPanel>
+    </Border>
+</Window>

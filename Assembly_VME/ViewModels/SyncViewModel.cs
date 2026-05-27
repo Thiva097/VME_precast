@@ -17,6 +17,8 @@ namespace Assembly_VME.ViewModels
     {
         private readonly UIDocument _uidoc;
         private readonly Document _doc;
+        private readonly Assembly_VME.Helpers.RevitActionHandler _handler;
+        private readonly ExternalEvent _revitEvent;
         private AssemblyItem _selectedAssembly;
         private string _statusText = "Select an Assembly to generate, view, and export its Sheet.";
         private ElementId _lastCreatedSheetId;
@@ -44,11 +46,11 @@ namespace Assembly_VME.ViewModels
                     
                     if (_selectedAssembly != null)
                     {
-                        // 1. Silent sync parameters to update Mark & Panel_Name
-                        SilentSyncSelectedAssembly();
-                        
-                        // 2. Programmatically generate/retrieve the sheet and schedules and show them in Revit!
-                        CreateAndShowAssemblySheet();
+                        // 1. & 2. Execute sync and sheet generation safe in Revit API context
+                        RunRevitAction(uiapp => {
+                            SilentSyncSelectedAssembly();
+                            CreateAndShowAssemblySheet();
+                        });
                     }
                 }
             }
@@ -71,13 +73,17 @@ namespace Assembly_VME.ViewModels
         public ICommand SyncAllCommand { get; }
         public ICommand BatchExportCommand { get; }
 
-        public SyncViewModel(UIDocument uidoc)
+        public SyncViewModel(UIDocument uidoc, Assembly_VME.Helpers.RevitActionHandler handler, ExternalEvent revitEvent)
         {
             _uidoc = uidoc;
             _doc = uidoc.Document;
+            _handler = handler;
+            _revitEvent = revitEvent;
 
             // Automatically verify or programmatically create and bind 'Panel_Name' and 'Weight_Kg' if they are missing!
-            ParameterHelper.EnsureSharedParametersExist(_doc);
+            RunRevitAction(uiapp => {
+                ParameterHelper.EnsureSharedParametersExist(_doc);
+            });
 
             ExportPdfCommand = new RelayCommand(ExecuteExportPdf, () => true);
             SyncSelectedCommand = new RelayCommand(ExecuteSyncSelected, () => SelectedAssembly != null);
@@ -85,6 +91,22 @@ namespace Assembly_VME.ViewModels
             BatchExportCommand = new RelayCommand(ExecuteBatchExport, () => Assemblies.Count > 0);
 
             LoadAssemblies();
+        }
+
+        /// <summary>
+        /// Safely executes an action within the Revit API context using ExternalEvent.
+        /// </summary>
+        private void RunRevitAction(Action<UIApplication> action)
+        {
+            if (_handler == null || _revitEvent == null)
+            {
+                // Fallback (if somehow not initialized, though it shouldn't happen)
+                action?.Invoke(_uidoc.Application);
+                return;
+            }
+
+            _handler.SetAction(action);
+            _revitEvent.Raise();
         }
 
         private void LoadAssemblies()
@@ -696,7 +718,8 @@ namespace Assembly_VME.ViewModels
 
                     try { _doc.Regenerate(); } catch { }
 
-                    // 6. Find or create the assembly 3D orthographic view and place it on the sheet.
+                    // 6. 3D ortho view placement removed as per user request
+                    /*
                     try
                     {
                         View3D assembly3dView = AssemblyViewHelper.GetOrCreateAssembly3DOrthoView(_doc, assemblyId, assemblyName);
@@ -719,6 +742,7 @@ namespace Assembly_VME.ViewModels
                     {
                         StatusText = "Note: 3D view placement failed: " + ex.Message;
                     }
+                    */
 
 
 
@@ -978,9 +1002,15 @@ namespace Assembly_VME.ViewModels
                 try { def.RemoveField(fieldIds[i]); } catch { }
             }
 
-            // Add Shape and Shape Image
+            // Add Shape and Bending Details (Shape Image removed as per user request)
             AddScheduleFieldByName(doc, def, "Shape", "Rebar Shape");
-            AddScheduleFieldByName(doc, def, "Shape Image");
+            AddScheduleFieldContaining(doc, def, "Bending", "Bending Details");
+            
+            // If still null, try one more robust fallback for "Bending Detail" (no s)
+            if (FindFieldByHeading(def, "Bending Details") == null)
+            {
+                AddScheduleFieldByName(doc, def, "Bending Detail", "Bending Details");
+            }
 
             // Group by Shape
             def.IsItemized = false;
@@ -1027,12 +1057,14 @@ namespace Assembly_VME.ViewModels
                 return;
             }
             
-            // Force a fresh sync and sheet generation before export to ensure "Always Create New Sheet" logic applies.
-            SilentSyncSelectedAssembly();
-            CreateAndShowAssemblySheet();
+            RunRevitAction(uiapp => {
+                // Force a fresh sync and sheet generation before export to ensure "Always Create New Sheet" logic applies.
+                SilentSyncSelectedAssembly();
+                CreateAndShowAssemblySheet();
 
-            string docsPath = Environment.GetFolderPath(Environment.SpecialFolder.MyDocuments);
-            ExportToPdfInternal(SelectedAssembly, docsPath, true);
+                string docsPath = Environment.GetFolderPath(Environment.SpecialFolder.MyDocuments);
+                ExportToPdfInternal(SelectedAssembly, docsPath, true);
+            });
         }
 
         private void ExecuteBatchExport()
@@ -1040,69 +1072,73 @@ namespace Assembly_VME.ViewModels
             if (Assemblies.Count == 0) return;
 
             _isBatchExporting = true;
-            try
-            {
-                string docsPath = Environment.GetFolderPath(Environment.SpecialFolder.MyDocuments);
-                string timestamp = DateTime.Now.ToString("yyyyMMdd_HHmmss");
-                string folderName = $"Assembly_BBS_Exports_{timestamp}";
-                string targetFolder = System.IO.Path.Combine(docsPath, folderName);
 
-                if (!System.IO.Directory.Exists(targetFolder))
+            RunRevitAction(uiapp => {
+                try
                 {
-                    System.IO.Directory.CreateDirectory(targetFolder);
+                    string docsPath = Environment.GetFolderPath(Environment.SpecialFolder.MyDocuments);
+                    string timestamp = DateTime.Now.ToString("yyyyMMdd_HHmmss");
+                    string folderName = $"Assembly_BBS_Exports_{timestamp}";
+                    string targetFolder = System.IO.Path.Combine(docsPath, folderName);
+
+                    if (!System.IO.Directory.Exists(targetFolder))
+                        System.IO.Directory.CreateDirectory(targetFolder);
+
+                    int successCount = 0;
+                    int failureCount = 0;
+
+                    // Snapshot the list to avoid collection change issues
+                    var allAssemblies = Assemblies.ToList();
+
+                    foreach (var item in allAssemblies)
+                    {
+                        try
+                        {
+                            // ✅ Directly set the backing field — skip the setter to avoid nested RunRevitAction
+                            _selectedAssembly = item;
+
+                            // ✅ Call methods directly — we're already inside RunRevitAction context
+                            SilentSyncSelectedAssembly();
+                            CreateAndShowAssemblySheet();
+
+                            bool success = ExportToPdfInternal(item, targetFolder, false);
+                            if (success) successCount++;
+                            else failureCount++;
+                        }
+                        catch
+                        {
+                            failureCount++;
+                        }
+                    }
+
+                    StatusText = $"Batch Export Completed: {successCount} successful, {failureCount} failed. Folder: {targetFolder}";
+
+                    Application.Current.Dispatcher.Invoke(() => {
+                        MessageBox.Show(
+                            $"Batch PDF Export Completed!\n\n" +
+                            $"- Total Assemblies: {allAssemblies.Count}\n" +
+                            $"- Successfully Exported: {successCount}\n" +
+                            $"- Failures: {failureCount}\n\n" +
+                            $"Location: {targetFolder}",
+                            "Batch Export Success",
+                            MessageBoxButton.OK,
+                            MessageBoxImage.Information);
+
+                        // Open the folder
+                        try { System.Diagnostics.Process.Start("explorer.exe", targetFolder); } catch { }
+                    });
                 }
-
-                int successCount = 0;
-                int failureCount = 0;
-
-                // Save current selection to restore later
-                var previousSelection = SelectedAssembly;
-
-                foreach (var item in Assemblies)
+                catch (Exception ex)
                 {
-                    try
-                    {
-                        // 1. Set as selected to trigger sync and sheet generation
-                        SelectedAssembly = item;
-                        
-                        // 2. Export to PDF in the new folder
-                        bool success = ExportToPdfInternal(item, targetFolder, false);
-                        if (success) successCount++;
-                        else failureCount++;
-                    }
-                    catch
-                    {
-                        failureCount++;
-                    }
+                    StatusText = $"Batch Export failed: {ex.Message}";
+                    Application.Current.Dispatcher.Invoke(() =>
+                        MessageBox.Show($"Batch Export failed:\n{ex.Message}", "Error", MessageBoxButton.OK, MessageBoxImage.Error));
                 }
-
-                // Restore previous selection
-                SelectedAssembly = previousSelection;
-
-                StatusText = $"Batch Export Completed: {successCount} successful, {failureCount} failed. Folder: {targetFolder}";
-
-                MessageBox.Show(
-                    $"Batch PDF Export Completed!\n\n" +
-                    $"- Total Assemblies: {Assemblies.Count}\n" +
-                    $"- Successfully Exported: {successCount}\n" +
-                    $"- Failures: {failureCount}\n\n" +
-                    $"Location: {targetFolder}",
-                    "Batch Export Success",
-                    MessageBoxButton.OK,
-                    MessageBoxImage.Information);
-
-                // Open the folder
-                try { System.Diagnostics.Process.Start("explorer.exe", targetFolder); } catch { }
-            }
-            catch (Exception ex)
-            {
-                StatusText = $"Batch Export failed: {ex.Message}";
-                MessageBox.Show($"Batch Export failed:\n{ex.Message}", "Error", MessageBoxButton.OK, MessageBoxImage.Error);
-            }
-            finally
-            {
-                _isBatchExporting = false;
-            }
+                finally
+                {
+                    _isBatchExporting = false;
+                }
+            });
         }
 
         private bool ExportToPdfInternal(AssemblyItem item, string targetFolder, bool showMessage)
@@ -1186,83 +1222,22 @@ namespace Assembly_VME.ViewModels
         {
             if (SelectedAssembly == null || SelectedAssembly.Instance == null) return;
 
-            try
-            {
-                using (Transaction trans = new Transaction(_doc, "Sync Selected Assembly"))
+            RunRevitAction(uiapp => {
+                try
                 {
-                    trans.Start();
-
-                    FailureHandlingOptions failOptions = trans.GetFailureHandlingOptions();
-                    failOptions.SetFailuresPreprocessor(new HideDuplicateMarkWarning());
-                    trans.SetFailureHandlingOptions(failOptions);
-
-                    AssemblyInstance ai = SelectedAssembly.Instance as AssemblyInstance;
-                    if (ai != null)
+                    using (Transaction trans = new Transaction(_doc, "Sync Selected Assembly"))
                     {
-                        List<ElementId> toAdd = new List<ElementId>();
-                        foreach (ElementId rid in SelectedAssembly.RebarIds)
-                        {
-                            if (!ai.GetMemberIds().Contains(rid))
-                            {
-                                toAdd.Add(rid);
-                            }
-                        }
-                        if (toAdd.Count > 0)
-                        {
-                            try { ai.AddMemberIds(toAdd); } catch {}
-                        }
-                    }
+                        trans.Start();
 
-                    int w = 0, r = 0, g = 0, f = 0;
-                    SyncAssemblyItem(SelectedAssembly, ref w, ref r, ref g, ref f);
-                    trans.Commit();
+                        FailureHandlingOptions failOptions = trans.GetFailureHandlingOptions();
+                        failOptions.SetFailuresPreprocessor(new HideDuplicateMarkWarning());
+                        trans.SetFailureHandlingOptions(failOptions);
 
-                    StatusText = $"Successfully synced Selected Assembly '{SelectedAssembly.Name}': {w} Walls, {r} Rebars, {g} Generic Models updated.";
-                    MessageBox.Show(
-                        $"Sync Selected Assembly Completed Successfully!\n\n" +
-                        $"- Assembly: {SelectedAssembly.Name}\n" +
-                        $"- Walls Updated: {w}\n" +
-                        $"- Rebars Updated: {r}\n" +
-                        $"- Generic Models Updated: {g}\n" +
-                        $"- Failures/Skipped: {f}",
-                        "Sync Selected Assembly",
-                        MessageBoxButton.OK,
-                        MessageBoxImage.Information);
-                }
-            }
-            catch (Exception ex)
-            {
-                StatusText = $"Sync Selected failed: {ex.Message}";
-                MessageBox.Show($"Sync Selected Assembly failed:\n{ex.Message}", "Error", MessageBoxButton.OK, MessageBoxImage.Error);
-            }
-        }
-
-        private void ExecuteSyncAll()
-        {
-            if (Assemblies.Count == 0) return;
-
-            try
-            {
-                using (Transaction trans = new Transaction(_doc, "Sync All Assemblies"))
-                {
-                    trans.Start();
-
-                    FailureHandlingOptions failOptions = trans.GetFailureHandlingOptions();
-                    failOptions.SetFailuresPreprocessor(new HideDuplicateMarkWarning());
-                    trans.SetFailureHandlingOptions(failOptions);
-
-                    int totalWalls = 0;
-                    int totalRebars = 0;
-                    int totalGenericModels = 0;
-                    int totalFailures = 0;
-
-                    foreach (var item in Assemblies)
-                    {
-                        AssemblyInstance ai = item.Instance as AssemblyInstance;
+                        AssemblyInstance ai = SelectedAssembly.Instance as AssemblyInstance;
                         if (ai != null)
                         {
                             List<ElementId> toAdd = new List<ElementId>();
-                            foreach (ElementId rid in item.RebarIds)
+                            foreach (ElementId rid in SelectedAssembly.RebarIds)
                             {
                                 if (!ai.GetMemberIds().Contains(rid))
                                 {
@@ -1275,29 +1250,94 @@ namespace Assembly_VME.ViewModels
                             }
                         }
 
-                        SyncAssemblyItem(item, ref totalWalls, ref totalRebars, ref totalGenericModels, ref totalFailures);
+                        int w = 0, r = 0, g = 0, f = 0;
+                        SyncAssemblyItem(SelectedAssembly, ref w, ref r, ref g, ref f);
+                        trans.Commit();
+
+                        StatusText = $"Successfully synced Selected Assembly '{SelectedAssembly.Name}': {w} Walls, {r} Rebars, {g} Generic Models updated.";
+                        MessageBox.Show(
+                            $"Sync Selected Assembly Completed Successfully!\n\n" +
+                            $"- Assembly: {SelectedAssembly.Name}\n" +
+                            $"- Walls Updated: {w}\n" +
+                            $"- Rebars Updated: {r}\n" +
+                            $"- Generic Models Updated: {g}\n" +
+                            $"- Failures/Skipped: {f}",
+                            "Sync Selected Assembly",
+                            MessageBoxButton.OK,
+                            MessageBoxImage.Information);
                     }
-
-                    trans.Commit();
-
-                    StatusText = $"Successfully synced all assemblies: {totalWalls} Walls, {totalRebars} Rebars, {totalGenericModels} Generic Models updated.";
-                    MessageBox.Show(
-                        $"Sync All Assemblies Completed Successfully!\n\n" +
-                        $"- Total Assemblies Processed: {Assemblies.Count}\n" +
-                        $"- Total Walls Updated: {totalWalls}\n" +
-                        $"- Total Rebars Updated: {totalRebars}\n" +
-                        $"- Total Generic Models Updated: {totalGenericModels}\n" +
-                        $"- Total Failures/Skipped: {totalFailures}",
-                        "Sync All Assemblies",
-                        MessageBoxButton.OK,
-                        MessageBoxImage.Information);
                 }
-            }
-            catch (Exception ex)
-            {
-                StatusText = $"Sync All failed: {ex.Message}";
-                MessageBox.Show($"Sync All Assemblies failed:\n{ex.Message}", "Error", MessageBoxButton.OK, MessageBoxImage.Error);
-            }
+                catch (Exception ex)
+                {
+                    StatusText = $"Sync Selected failed: {ex.Message}";
+                    MessageBox.Show($"Sync Selected Assembly failed:\n{ex.Message}", "Error", MessageBoxButton.OK, MessageBoxImage.Error);
+                }
+            });
+        }
+
+        private void ExecuteSyncAll()
+        {
+            if (Assemblies.Count == 0) return;
+
+            RunRevitAction(uiapp => {
+                try
+                {
+                    using (Transaction trans = new Transaction(_doc, "Sync All Assemblies"))
+                    {
+                        trans.Start();
+
+                        FailureHandlingOptions failOptions = trans.GetFailureHandlingOptions();
+                        failOptions.SetFailuresPreprocessor(new HideDuplicateMarkWarning());
+                        trans.SetFailureHandlingOptions(failOptions);
+
+                        int totalWalls = 0;
+                        int totalRebars = 0;
+                        int totalGenericModels = 0;
+                        int totalFailures = 0;
+
+                        foreach (var item in Assemblies)
+                        {
+                            AssemblyInstance ai = item.Instance as AssemblyInstance;
+                            if (ai != null)
+                            {
+                                List<ElementId> toAdd = new List<ElementId>();
+                                foreach (ElementId rid in item.RebarIds)
+                                {
+                                    if (!ai.GetMemberIds().Contains(rid))
+                                    {
+                                        toAdd.Add(rid);
+                                    }
+                                }
+                                if (toAdd.Count > 0)
+                                {
+                                    try { ai.AddMemberIds(toAdd); } catch {}
+                                }
+                            }
+
+                            SyncAssemblyItem(item, ref totalWalls, ref totalRebars, ref totalGenericModels, ref totalFailures);
+                        }
+
+                        trans.Commit();
+
+                        StatusText = $"Successfully synced all assemblies: {totalWalls} Walls, {totalRebars} Rebars, {totalGenericModels} Generic Models updated.";
+                        MessageBox.Show(
+                            $"Sync All Assemblies Completed Successfully!\n\n" +
+                            $"- Total Assemblies Processed: {Assemblies.Count}\n" +
+                            $"- Total Walls Updated: {totalWalls}\n" +
+                            $"- Total Rebars Updated: {totalRebars}\n" +
+                            $"- Total Generic Models Updated: {totalGenericModels}\n" +
+                            $"- Total Failures/Skipped: {totalFailures}",
+                            "Sync All Assemblies",
+                            MessageBoxButton.OK,
+                            MessageBoxImage.Information);
+                    }
+                }
+                catch (Exception ex)
+                {
+                    StatusText = $"Sync All failed: {ex.Message}";
+                    MessageBox.Show($"Sync All Assemblies failed:\n{ex.Message}", "Error", MessageBoxButton.OK, MessageBoxImage.Error);
+                }
+            });
         }
 
         private static ViewSheet FindExistingAssemblySheet(Document doc, ElementId assemblyId, string assemblyName)
