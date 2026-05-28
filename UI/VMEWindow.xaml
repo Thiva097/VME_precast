@@ -105,7 +105,7 @@
                Text="VME Precast Workspace v1.0.0"
                Foreground="#94A3B8"
                FontSize="12"
-               VerticalAlignment="Center" Margin="440,0,279,0"/>
+               VerticalAlignment="Top" Margin="412,-5,307,0"/>
                     </Grid>
                 </StackPanel>
 

@@ -9,14 +9,6 @@ namespace Assembly_VME.UI
     {
         public Result OnStartup(UIControlledApplication application)
         {
-            if (!LicenseValidator.IsLicensed())
-            {
-                string mac = LicenseValidator.GetMacAddress();
-                TaskDialog.Show("License Invalid",
-                    "This machine is not licensed.\n\n" +
-                    "Please send this MAC ID to activate:\n\n" + mac);
-                return Result.Failed;
-            }
 
             string tabName = "VME";
             try { application.CreateRibbonTab(tabName); }

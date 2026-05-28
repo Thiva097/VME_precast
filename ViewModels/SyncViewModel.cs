@@ -1,3 +1,8 @@
+using Assembly_VME.Helpers;
+using Assembly_VME.Views;
+using Autodesk.Revit.DB;
+using Autodesk.Revit.DB.Structure;
+using Autodesk.Revit.UI;
 using System;
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
@@ -6,10 +11,6 @@ using System.Linq;
 using System.Runtime.CompilerServices;
 using System.Windows;
 using System.Windows.Input;
-using Autodesk.Revit.DB;
-using Autodesk.Revit.UI;
-using Autodesk.Revit.DB.Structure;
-using Assembly_VME.Helpers;
 
 namespace Assembly_VME.ViewModels
 {
@@ -1073,6 +1074,51 @@ namespace Assembly_VME.ViewModels
 
             _isBatchExporting = true;
 
+            // ✅ Progress state — shared between threads
+            int progressCurrent = 0;
+            int progressTotal = Assemblies.Count;
+            string progressAssemblyName = "Starting...";
+            bool progressDone = false;
+
+            // ✅ Run progress window on its OWN dedicated UI thread
+            // completely separate from Revit's main thread
+            System.Threading.Thread progressThread = new System.Threading.Thread(() =>
+            {
+                ProgressWindow progressWindow = new ProgressWindow();
+                progressWindow.Show();
+
+                // Poll progress state and update UI every 300ms
+                System.Windows.Threading.DispatcherTimer timer = new System.Windows.Threading.DispatcherTimer();
+                timer.Interval = TimeSpan.FromMilliseconds(300);
+                timer.Tick += (s, e) =>
+                {
+                    if (progressDone)
+                    {
+                        timer.Stop();
+                        progressWindow.MarkComplete();
+
+                        // Auto close after 1 second when done
+                        System.Threading.Tasks.Task.Delay(1000).ContinueWith(_ =>
+                        {
+                            progressWindow.Dispatcher.Invoke(() => progressWindow.Close());
+                        });
+                    }
+                    else
+                    {
+                        progressWindow.UpdateProgress(progressCurrent, progressTotal, progressAssemblyName);
+                    }
+                };
+                timer.Start();
+
+                // Required to keep this thread alive with its own message pump
+                System.Windows.Threading.Dispatcher.Run();
+            });
+
+            progressThread.SetApartmentState(System.Threading.ApartmentState.STA);
+            progressThread.IsBackground = true;
+            progressThread.Start();
+
+            // ✅ Revit export runs normally on Revit's thread
             RunRevitAction(uiapp => {
                 try
                 {
@@ -1087,17 +1133,20 @@ namespace Assembly_VME.ViewModels
                     int successCount = 0;
                     int failureCount = 0;
 
-                    // Snapshot the list to avoid collection change issues
                     var allAssemblies = Assemblies.ToList();
+                    progressTotal = allAssemblies.Count;
 
-                    foreach (var item in allAssemblies)
+                    for (int i = 0; i < allAssemblies.Count; i++)
                     {
+                        var item = allAssemblies[i];
+
+                        // ✅ Just update shared variables — progress thread reads them
+                        progressCurrent = i;
+                        progressAssemblyName = item.Name;
+
                         try
                         {
-                            // ✅ Directly set the backing field — skip the setter to avoid nested RunRevitAction
                             _selectedAssembly = item;
-
-                            // ✅ Call methods directly — we're already inside RunRevitAction context
                             SilentSyncSelectedAssembly();
                             CreateAndShowAssemblySheet();
 
@@ -1109,11 +1158,20 @@ namespace Assembly_VME.ViewModels
                         {
                             failureCount++;
                         }
+
+                        progressCurrent = i + 1;
                     }
 
-                    StatusText = $"Batch Export Completed: {successCount} successful, {failureCount} failed. Folder: {targetFolder}";
+                    // ✅ Signal progress thread that we're done
+                    progressDone = true;
 
-                    Application.Current.Dispatcher.Invoke(() => {
+                    // Give progress window 1.5s to show complete before showing messagebox
+                    System.Threading.Thread.Sleep(1500);
+
+                    StatusText = $"Batch Export Completed: {successCount} successful, {failureCount} failed.";
+
+                    Application.Current.Dispatcher.Invoke(() =>
+                    {
                         MessageBox.Show(
                             $"Batch PDF Export Completed!\n\n" +
                             $"- Total Assemblies: {allAssemblies.Count}\n" +
@@ -1124,12 +1182,12 @@ namespace Assembly_VME.ViewModels
                             MessageBoxButton.OK,
                             MessageBoxImage.Information);
 
-                        // Open the folder
                         try { System.Diagnostics.Process.Start("explorer.exe", targetFolder); } catch { }
                     });
                 }
                 catch (Exception ex)
                 {
+                    progressDone = true;
                     StatusText = $"Batch Export failed: {ex.Message}";
                     Application.Current.Dispatcher.Invoke(() =>
                         MessageBox.Show($"Batch Export failed:\n{ex.Message}", "Error", MessageBoxButton.OK, MessageBoxImage.Error));
@@ -1139,6 +1197,29 @@ namespace Assembly_VME.ViewModels
                     _isBatchExporting = false;
                 }
             });
+        }
+
+        public class HideDuplicateMarkWarning : IFailuresPreprocessor
+        {
+            public FailureProcessingResult PreprocessFailures(FailuresAccessor failuresAccessor)
+            {
+                IList<FailureMessageAccessor> failureMessages = failuresAccessor.GetFailureMessages();
+                foreach (FailureMessageAccessor f in failureMessages)
+                {
+                    if (f.GetSeverity() == FailureSeverity.Warning)
+                    {
+                        failuresAccessor.DeleteWarning(f);
+                    }
+                    else if (f.GetSeverity() == FailureSeverity.Error)
+                    {
+                        if (failuresAccessor.IsFailureResolutionPermitted(f))
+                        {
+                            failuresAccessor.ResolveFailure(f);
+                        }
+                    }
+                }
+                return FailureProcessingResult.Continue;
+            }
         }
 
         private bool ExportToPdfInternal(AssemblyItem item, string targetFolder, bool showMessage)
